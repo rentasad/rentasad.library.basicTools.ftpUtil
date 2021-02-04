@@ -1,0 +1,87 @@
+<?xml version="1.0"?>
+<project
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
+	xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>rentasad</groupId>
+	<artifactId>rentasad.library.basicTools.ftpUtil</artifactId>
+	<version>1.1.0</version>
+	<name>gustini.library.basicTools.ftpUtil</name>
+	<url>http://maven.apache.org</url>
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<!--  UNIT-TESTS beim BUILD deaktivieren -->
+		<skipTests>true</skipTests>
+	</properties>
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.8.1</version>
+				<configuration>
+					<release>15</release>
+					<compilerArgs>
+						--enable-preview
+					</compilerArgs>
+				</configuration>
+			</plugin>
+			<!-- The Maven-Surefire-Plugin is needed to make Unittests while building -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>2.14.1</version>
+				<configuration>
+					<argLine>
+						--enable-preview
+					</argLine>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+	<dependencies>
+		<!-- https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-api -->
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-api</artifactId>
+			<version>5.2.0</version>
+			<scope>test</scope>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/commons-net/commons-net -->
+		<dependency>
+			<groupId>commons-net</groupId>
+			<artifactId>commons-net</artifactId>
+			<version>3.6</version>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/org.apache.commons/commons-email -->
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-email</artifactId>
+			<version>1.5</version>
+		</dependency>
+
+		<!-- https://mvnrepository.com/artifact/com.jcraft/jsch -->
+		<dependency>
+			<groupId>com.jcraft</groupId>
+			<artifactId>jsch</artifactId>
+			<version>0.1.54</version>
+		</dependency>
+
+		<dependency>
+			<groupId>rentasad</groupId>
+			<artifactId>rentasad.library.configFileTool</artifactId>
+			<version>1.1.0</version>
+		</dependency>
+		<dependency>
+			<groupId>rentasad</groupId>
+			<artifactId>rentasad.library.basicTools</artifactId>
+			<version>1.1.0</version>
+		</dependency>
+		<dependency>
+			<groupId>rentasad</groupId>
+			<artifactId>rentasad.library.db</artifactId>
+			<version>1.1.0</version>
+		</dependency>
+	</dependencies>
+</project>
