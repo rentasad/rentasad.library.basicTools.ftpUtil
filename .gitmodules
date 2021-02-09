@@ -1,0 +1,9 @@
+[submodule "lib/rentasad.library_db"]
+	path = lib/rentasad.library_db
+	url = https://github.com/rentasad/library_db.git
+[submodule "lib/gustini_library_configFileTool"]
+	path = lib/gustini_library_configFileTool
+	url = https://github.com/rentasad/library_configFileTool.git
+[submodule "lib/rentasad_library_basicTools"]
+	path = lib/rentasad_library_basicTools
+	url = https://github.com/rentasad/library_basicTools.git
