@@ -21,10 +21,7 @@
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>3.8.1</version>
 				<configuration>
-					<release>15</release>
-					<compilerArgs>
-						--enable-preview
-					</compilerArgs>
+					<release>11</release>
 				</configuration>
 			</plugin>
 			<!-- The Maven-Surefire-Plugin is needed to make Unittests while building -->
@@ -81,7 +78,7 @@
 		<dependency>
 			<groupId>rentasad</groupId>
 			<artifactId>rentasad.library.db</artifactId>
-			<version>1.1.0</version>
+			<version>1.1.1</version>
 		</dependency>
 	</dependencies>
 </project>
