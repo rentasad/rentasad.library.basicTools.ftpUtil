@@ -13,7 +13,7 @@ import org.apache.commons.mail.DefaultAuthenticator;
 import org.apache.commons.mail.EmailException;
 import org.apache.commons.mail.MultiPartEmail;
 
-import rentasad.library.basicTools.DateTools;
+import rentasad.library.basicTools.dateTool.DateTools;
 import rentasad.library.basicTools.ftpUtil.FTPConnection;
 import rentasad.library.basicTools.ftpUtil.objects.FtpFileStatus;
 import rentasad.library.basicTools.ftpUtil.objects.IFTPKonfigurationSheetParameter;
@@ -36,6 +36,9 @@ import rentasad.library.db.MYSQLConnection;
  *27.11.2018
  *UploadCheck prüft jetzt auch CRC Checksumme, wenn Remote Datei zu alt ist.
  *Das erspart unerwünschte Benachrichtigungen, wenn lokale Datei sich nicht verändert hat.
+ *
+ *
+ *02.09.2021 -> MUSS in Projekt umgezogen werden wo es gebraucht wird --> Hier werden Methoden ausgeklammert
  */
 public class FtpStatusEmailAlertProvider
 {
@@ -187,7 +190,10 @@ public class FtpStatusEmailAlertProvider
             System.out.println("Alle zu pruefenden Dateien sind vorhanden und aktuell.");
         }
     }
-
+	/*
+	 * Methode wird nicht mehr genutzt, weshalb sie ausgeblendet wird.
+	 */
+    
     /**
      * 
      * Description:
@@ -197,10 +203,13 @@ public class FtpStatusEmailAlertProvider
      * @return
      *         Creation: 27.11.2018 by mst
      * @throws SQLException
+     * @Deprecated
      */
     public Long getCrcChecksumFromDatabase(final String fileNameString, final Map<String, String> mySqlConfigMap) throws SQLException
     {
-
+    	/*
+    	 * Methode wird nicht mehr genutzt, weshalb sie ausgeblendet wird.
+    	 */
         Connection con = MYSQLConnection.dbConnect(mySqlConfigMap);
         Long lastHashFromDatabase = null;
         String countQuery = "SELECT count(*) as anzahl from ftp_uploadLog where fileName like ?";
