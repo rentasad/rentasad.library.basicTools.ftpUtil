@@ -19,7 +19,7 @@
 		<!-- VERSION PROPERTY -->
 		<!-- USING WITH ${basicToolParentVersion} -->
 		<basicToolParentVersion>B2.2.0</basicToolParentVersion>
-		<dbToolParentVersion>D2.1.2</dbToolParentVersion>
+		<dbToolParentVersion>D2.2.0</dbToolParentVersion>
 				<!-- DEPENDENCIES VERSIONS -->
 		<maven-clean-plugin>3.1.0</maven-clean-plugin>
 		<maven-resources-plugin>3.2.0</maven-resources-plugin>
