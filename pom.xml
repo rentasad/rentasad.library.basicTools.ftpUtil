@@ -14,7 +14,7 @@
 		<maven.compiler.target>8</maven.compiler.target>
 		<!-- VERSION PROPERTY -->
 		<!-- USING WITH ${basicToolParentVersion} -->
-		<basicToolParentVersion>B2.2.3</basicToolParentVersion>
+		<basicToolParentVersion>B2.3.0</basicToolParentVersion>
 		<dbToolParentVersion>D2.2.1</dbToolParentVersion>
 				<!-- DEPENDENCIES VERSIONS -->
 		<maven-clean-plugin>3.1.0</maven-clean-plugin>
