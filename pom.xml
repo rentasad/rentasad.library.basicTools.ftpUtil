@@ -10,12 +10,12 @@
 	
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<maven.compiler.source>8</maven.compiler.source>
-		<maven.compiler.target>8</maven.compiler.target>
+		<maven.compiler.source>17</maven.compiler.source>
+		<maven.compiler.target>17</maven.compiler.target>
 		<!-- VERSION PROPERTY -->
 		<!-- USING WITH ${basicToolParentVersion} -->
-		<basicToolParentVersion>B2.5.2</basicToolParentVersion>
-		<dbToolParentVersion>D2.5.4</dbToolParentVersion>
+		<basicToolParentVersion>B2.6.0</basicToolParentVersion>
+		<dbToolParentVersion>D2.6.3</dbToolParentVersion>
 				<!-- DEPENDENCIES VERSIONS -->
 		<maven-clean-plugin>3.1.0</maven-clean-plugin>
 		<maven-resources-plugin>3.2.0</maven-resources-plugin>
@@ -36,17 +36,17 @@
 			<scope>test</scope>
 		</dependency>
 		<dependency>
-			<groupId>rentasad</groupId>
+			<groupId>rentasad.library</groupId>
 			<artifactId>rentasad.library.basicTools.dateTools</artifactId>
 			<version>${basicToolParentVersion}</version>
 		</dependency>
-				<dependency>
-			<groupId>rentasad</groupId>
+		<dependency>
+			<groupId>rentasad.library</groupId>
 			<artifactId>rentasad.library.basicTools.numberTools</artifactId>
 			<version>${basicToolParentVersion}</version>
 		</dependency>
 		<dependency>
-			<groupId>rentasad</groupId>
+			<groupId>rentasad.library</groupId>
 			<artifactId>rentasad.library.basicTools.configFileTool</artifactId>
 			<version>${basicToolParentVersion}</version>
 		</dependency>
