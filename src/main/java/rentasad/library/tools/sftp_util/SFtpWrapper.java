@@ -23,17 +23,8 @@ import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
 import com.jcraft.jsch.SftpException;
 /**
- * 
- * Gustini GmbH (2017)
- * Creation: 06.01.2017
- * Library
- * rentasad.library.tools.sftp_util
- * 
- * @author Matthias Staud
- *
- *
- * Description:
- *
+ * SFtpWrapper is a wrapper class for performing SFTP operations such as connecting to an SFTP server,
+ * uploading and downloading files, and extracting files from ZIP and GZ archives.
  */
 public class SFtpWrapper implements AutoCloseable
 {
@@ -104,7 +95,13 @@ public class SFtpWrapper implements AutoCloseable
        }
     }
 
-    /** Datei-Daten zu einer einzelnen Datei */
+    /**
+     * Retrieves the file data of a specified remote file.
+     *
+     * @param remoteFilePath The path of the remote file.
+     * @return The file data of the remote file, or null if the file does not exist or if there was an error retrieving the file data.
+     * @throws IOException If there was an I/O error while retrieving the file data.
+     */
     public FileData getFileData( String remoteFilePath ) throws IOException
     {
        try {
@@ -129,7 +126,13 @@ public class SFtpWrapper implements AutoCloseable
        }
     }
 
-    /** Datei-Daten zu allen Dateien in einem Verzeichnis */
+    /**
+     * Retrieves a list of FileData objects representing the files in the specified remote directory.
+     *
+     * @param remoteDir The remote directory path.
+     * @return A list of FileData objects representing the files in the remote directory.
+     * @throws IOException If there was an I/O error retrieving the file data.
+     */
     public List<FileData> getFileDataList( String remoteDir ) throws IOException
     {
        try {
@@ -153,6 +156,13 @@ public class SFtpWrapper implements AutoCloseable
        }
     }
 
+    /**
+     * Creates a remote file by uploading data from an InputStream.
+     *
+     * @param is                 The InputStream containing the data to upload.
+     * @param remoteDstFilePath  The destination path of the remote file.
+     * @throws IOException       If there was an I/O error while uploading the file data.
+     */
     public void createRemoteFile( InputStream is, String remoteDstFilePath ) throws IOException
     {
        try {
@@ -162,6 +172,13 @@ public class SFtpWrapper implements AutoCloseable
        }
     }
 
+    /**
+     * Uploads a file from the local source path to the remote destination path.
+     *
+     * @param localSrcFilePath The path of the local file to upload.
+     * @param remoteDstFilePath The destination path of the remote file.
+     * @throws IOException If there was an I/O error while uploading the file.
+     */
     public void uploadFile( String localSrcFilePath, String remoteDstFilePath ) throws IOException
     {
        try {
@@ -171,6 +188,13 @@ public class SFtpWrapper implements AutoCloseable
        }
     }
 
+    /**
+     * Downloads a file from the remote source path to the local destination path.
+     *
+     * @param remoteSrcFilePath The path of the remote file.
+     * @param localDstFilePath The destination path of the local file.
+     * @throws IOException If there was an I/O error while downloading the file.
+     */
     public void downloadFile( String remoteSrcFilePath, String localDstFilePath ) throws IOException
     {
        try {
@@ -181,6 +205,12 @@ public class SFtpWrapper implements AutoCloseable
        }
     }
     
+    /**
+     * Removes a file in the remote server.
+     *
+     * @param remoteFilePath The path of the file to be removed.
+     * @throws IOException If there was an I/O error while removing the file.
+     */
     public void removeFile(String remoteFilePath) throws IOException
     {
             try
@@ -193,7 +223,13 @@ public class SFtpWrapper implements AutoCloseable
             
     }
 
-    /** Entpacken von remote .gz */
+    /**
+     * Ungzips a remote source zip file and saves the result to a local destination file.
+     *
+     * @param remoteSourceZipFile The path of the remote source zip file.
+     * @param localDestFilePath The path of the local destination file.
+     * @throws IOException If there is an I/O error during unzipping.
+     */
     public void ungzipRemote( String remoteSourceZipFile, String localDestFilePath ) throws IOException
     {
        try( InputStream instreamZipped = channel.get( remoteSourceZipFile ) ) {
@@ -203,7 +239,13 @@ public class SFtpWrapper implements AutoCloseable
        }
     }
 
-    /** Entpacken von lokalem .gz */
+    /**
+     * Unzips a local source zip file and saves the result to a local destination file.
+     *
+     * @param localSourceZipFile The path of the local source zip file.
+     * @param localDestFilePath The path of the local destination file.
+     * @throws IOException If there is an I/O error during unzipping.
+     */
     public static void ungzipLocal( String localSourceZipFile, String localDestFilePath ) throws IOException
     {
        try( InputStream instreamZipped = new FileInputStream( localSourceZipFile ) ) {
@@ -213,7 +255,13 @@ public class SFtpWrapper implements AutoCloseable
        }
     }
 
-    /** Entpacken von .gz */
+    /**
+     * Ungzips the input stream and writes the result to the local file.
+     *
+     * @param instreamZipped The input stream of the zipped data.
+     * @param localDestFilePath The path of the local destination file.
+     * @throws IOException If there is an I/O error during unzipping.
+     */
     public static void ungzipStream( InputStream instreamZipped, String localDestFilePath ) throws IOException
     {
        try( GZIPInputStream zin = new GZIPInputStream( new BufferedInputStream( instreamZipped ) ) ) {
@@ -227,7 +275,14 @@ public class SFtpWrapper implements AutoCloseable
        }
     }
 
-    /** Entpacken von remote .zip */
+    /**
+     * Unzips a remote source zip file and saves the result to a local destination directory.
+     *
+     * @param remoteSourceZipFile The path of the remote source zip file.
+     * @param localDestDir The path of the local destination directory.
+     * @return The number of entries unzipped.
+     * @throws IOException If there is an I/O error during unzipping.
+     */
     public long unzipRemote( String remoteSourceZipFile, String localDestDir ) throws IOException
     {
        try( InputStream instreamZipped = channel.get( remoteSourceZipFile ) ) {
@@ -237,7 +292,14 @@ public class SFtpWrapper implements AutoCloseable
        }
     }
 
-    /** Entpacken von lokalem .zip */
+    /**
+     * Unzips a local source zip file and saves the result to a local destination directory.
+     *
+     * @param localSourceZipFile The path of the local source zip file.
+     * @param localDestDir The path of the local destination directory.
+     * @return The number of entries unzipped.
+     * @throws IOException If there is an I/O error during unzipping.
+     */
     public static long unzipLocal( String localSourceZipFile, String localDestDir ) throws IOException
     {
        try( InputStream instreamZipped = new FileInputStream( localSourceZipFile ) ) {
@@ -247,7 +309,14 @@ public class SFtpWrapper implements AutoCloseable
        }
     }
 
-    /** Entpacken von .zip */
+    /**
+     * Unzips the input stream and saves the result to the local destination directory.
+     *
+     * @param instreamZipped The input stream of the zipped data.
+     * @param localDestDir The path of the local destination directory.
+     * @return The number of entries unzipped.
+     * @throws IOException If there is an I/O error during unzipping.
+     */
     public static long unzipStream( InputStream instreamZipped, String localDestDir ) throws IOException
     {
        long   anzahlEntries = 0;
@@ -277,7 +346,15 @@ public class SFtpWrapper implements AutoCloseable
        return anzahlEntries;
     }
 
-    /** Downloaden sowie Entpacken von .zip und .gz */
+    /**
+     * Downloads and unzips files from a remote source directory to a local destination directory.
+     *
+     * @param remoteSrcDir The path of the remote source directory.
+     * @param localDstDir The path of the local destination directory.
+     * @param filenameMustContain The string that the filenames must contain to be processed.
+     * @param maxAlterInTagen The maximum age of files (in days) to be processed.
+     * @throws IOException If there was an I/O error while downloading or unzipping the files.
+     */
     public void downloadAndUnzip( String remoteSrcDir, String localDstDir, String filenameMustContain, int maxAlterInTagen ) throws IOException
     {
        Calendar cal = new GregorianCalendar();
@@ -299,7 +376,19 @@ public class SFtpWrapper implements AutoCloseable
        }
     }
 
-    /** Downloaden sowie Entpacken von .zip und .gz */
+    /**
+     * Downloads and unzips files from a remote source directory to a local destination directory.
+     *
+     * @param remoteSrcDir       The path of the remote source directory.
+     * @param localDstDir        The path of the local destination directory.
+     * @param filenameMustContain    The string that the filenames must contain to be processed.
+     * @param maxAlterInTagen    The maximum age of files (in days) to be processed.
+     * @param benutzername       The username for the SFTP connection.
+     * @param passwort           The password for the SFTP connection.
+     * @param host               The hostname for the SFTP connection.
+     * @param port               The port number for the SFTP connection.
+     * @throws IOException      If there was an I/O error while downloading or unzipping the files.
+     */
     public static void downloadAndUnzip( String remoteSrcDir, String localDstDir, String filenameMustContain, String maxAlterInTagen,
                                          String benutzername, String passwort, String host, String port ) throws IOException
     {
@@ -321,7 +410,9 @@ public class SFtpWrapper implements AutoCloseable
        }
     }
 
-    /** Datei-Daten */
+    /**
+     * Represents the data of a file in a file system.
+     */
     public static class FileData
     {
        public boolean  isFile;
