@@ -6,7 +6,7 @@
 
 	<groupId>rentasad</groupId>
 	<artifactId>rentasad.library.basicTools.ftpUtil</artifactId>
-	<version>F2.3.1</version>
+	<version>F2.3.2</version>
 	
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -38,17 +38,17 @@
 		<dependency>
 			<groupId>rentasad.library</groupId>
 			<artifactId>rentasad.library.basicTools.dateTools</artifactId>
-			<version>${basicToolParentVersion}</version>
+			<version>3.0.0</version>
 		</dependency>
 		<dependency>
 			<groupId>rentasad.library</groupId>
 			<artifactId>rentasad.library.basicTools.numberTools</artifactId>
-			<version>${basicToolParentVersion}</version>
+			<version>3.0.0</version>
 		</dependency>
 		<dependency>
 			<groupId>rentasad.library</groupId>
 			<artifactId>rentasad.library.basicTools.configFileTool</artifactId>
-			<version>${basicToolParentVersion}</version>
+			<version>3.0.1</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/commons-net/commons-net -->
 		<dependency>
@@ -70,9 +70,9 @@
 			<version>0.1.54</version>
 		</dependency>
 		<dependency>
-			<groupId>rentasad</groupId>
+			<groupId>rentasad.library</groupId>
 			<artifactId>rentasad.library.db.mysql</artifactId>
-			<version>${dbToolParentVersion}</version>
+			<version>4.0.0-jdk17</version>
 		</dependency>
 	</dependencies>
 
