@@ -6,7 +6,7 @@
 
 	<groupId>rentasad</groupId>
 	<artifactId>rentasad.library.basicTools.ftpUtil</artifactId>
-	<version>F2.3.2</version>
+	<version>F2.3.3</version>
 	
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -72,7 +72,7 @@
 		<dependency>
 			<groupId>rentasad.library</groupId>
 			<artifactId>rentasad.library.db.mysql</artifactId>
-			<version>4.0.0-jdk17</version>
+			<version>4.0.2-jdk17</version>
 		</dependency>
 	</dependencies>
 
