@@ -70,17 +70,17 @@ public class FtpStatusEmailAlertProvider
         boolean semaphoreSet = false;
         // Meldungen ueber Artikel werden im Array abgelegt.
         ArrayList<String> meldungenArrayList = new ArrayList<String>();
-        for (Iterator<FtpFileStatus> iterator = fileStatusCollection.iterator(); iterator.hasNext();)
-        {
-            FtpFileStatus ftpFileStatus = (FtpFileStatus) iterator.next();
+        /**
+         * Dateien lokal und Remote sind unterschiedlich --> sie müssten aktuell sein --> Fehlermeldung senden!
+         */
+        for (FtpFileStatus ftpFileStatus : fileStatusCollection) {
             int maxAgeMin = ftpFileStatus.getMaxAgeInMinutes();
 
             /*
              * 1. Prüfen ob Semaphore existiert und eventuell den Import blockiert
              */
             semaphoreSet = ftpFileStatus.isSemaphoreExist();
-            if (semaphoreSet)
-            {
+            if (semaphoreSet) {
                 mailSendNeeded = true;
                 meldungenArrayList.add("\nSEMAPHORE BLOCKIERT UPLOAD");
                 meldungenArrayList.add("Bitte prüfen Sie bei wiederholter Meldung, ob die Semaphore den Artikelipload blockiert!");
@@ -89,11 +89,9 @@ public class FtpStatusEmailAlertProvider
             /*
              * 2. Pruefen ob Datei existiert - muss auf beiden existieren.
              */
-            if (ftpFileStatus.isExistFTPFile() || !ftpFileMustExist)
-            {
+            if (ftpFileStatus.isExistFTPFile() || !ftpFileMustExist) {
 
-                if (ftpFileStatus.isExistLocalFile())
-                {
+                if (ftpFileStatus.isExistLocalFile()) {
 
                     int timeZoneDifferenceFtpServerInMinutes = ftpFileStatus.getFtpServerTimeDifference();
 
@@ -102,17 +100,15 @@ public class FtpStatusEmailAlertProvider
                         ftpFileAgeInMinutes = DateTools.getMinutesFromMilliseconds(ftpFileStatus.getAgeOfFtpFile()) + timeZoneDifferenceFtpServerInMinutes;
                     int localFileAgeInMinutes = DateTools.getMinutesFromMilliseconds(ftpFileStatus.getAgeOfLocalFile());
 
-                    if (localFileAgeInMinutes > maxAgeMin)
-                    {// Lokale Datei ist zu alt
+                    if (localFileAgeInMinutes > maxAgeMin) {// Lokale Datei ist zu alt
                         mailSendNeeded = true;
                         meldungenArrayList.add(String.format("\nDateiname: %s", ftpFileStatus.getFileName()));
                         meldungenArrayList.add("Existiert lokal: JA, FTP: JA");
                         meldungenArrayList.add(String.format("Alter in Minuten Lokal: %d, FTP: %d", localFileAgeInMinutes, ftpFileAgeInMinutes));
                         meldungenArrayList.add(String.format("FEHLER: LOKALE DATEI ZU ALT (MAX: %d Minuten, Alter: %d Minuten", maxAgeMin, localFileAgeInMinutes));
                     }
-                    if (ftpFileAgeInMinutes > maxAgeMin)
-                    {// REMOTE Datei ist zu alt
-                     // Inhaltlich prüfen ob diese anders als die REMOTE-Datei ist
+                    if (ftpFileAgeInMinutes > maxAgeMin) {// REMOTE Datei ist zu alt
+                        // Inhaltlich prüfen ob diese anders als die REMOTE-Datei ist
 
                         /*
                          * Lokale Datei existiert --> Aktualität mit DB abgleichen
@@ -121,10 +117,9 @@ public class FtpStatusEmailAlertProvider
                         Long crcChecksumLastUpload = getCrcChecksumFromDatabase(ftpFileStatus.getLocalFile().getName(), mySqlSettingsMap);
                         Long actualLCrcLocal = FTPConnection.getCRCFromLocalFile(ftpFileStatus.getLocalFile().getAbsolutePath());
                         System.out.println(String.format("Lokal: %d - Remote: %d", actualLCrcLocal, crcChecksumLastUpload));
-                        if (!crcChecksumLastUpload.equals(actualLCrcLocal))
-                        {
-                            /**
-                             * Dateien lokal und Remote sind unterschiedlich --> sie müssten aktuell sein --> Fehlermeldung senden!
+                        if (!crcChecksumLastUpload.equals(actualLCrcLocal)) {
+                            /*
+                              Dateien lokal und Remote sind unterschiedlich --> sie müssten aktuell sein --> Fehlermeldung senden!
                              */
                             mailSendNeeded = true;
                             meldungenArrayList.add(String.format("*************************************************", ftpFileStatus.getFileName()));
@@ -135,14 +130,12 @@ public class FtpStatusEmailAlertProvider
                             meldungenArrayList.add(String.format("\nFEHLER: FTP-DATEI ZU ALT (MAX: %d Minuten, Alter: %d Minuten", maxAgeMin, ftpFileAgeInMinutes));
                         }
                     }
-                } else
-                {
+                } else {
                     mailSendNeeded = true;
                     // localArchivDir + System.getProperty("file.separator")
                     meldungenArrayList.add(String.format("\nLokale Datei existiert nicht: %s", ftpFileStatus.getFileName()));
                 }
-            } else
-            {
+            } else {
                 mailSendNeeded = true;
                 meldungenArrayList.add(String.format("FTP-Datei existiert nicht: %s", ftpFileStatus.getFileName()));
             }
@@ -150,17 +143,17 @@ public class FtpStatusEmailAlertProvider
         }
         if (mailSendNeeded)
         {
-            String mailBody = new String();
+            String mailBody = "";
             mailBody += "Gustini FTPUploadCheck mit E-Mailbenachrichtigung";
             mailBody += "\n Diese E-Mail wird Ihnen gesendet, weil der Upload der Dateien nicht mehr aktuell ist";
             mailBody += "\n oder an anderer Stelle fehlschlaegt";
             mailBody += "\n";
             mailBody += "\n Bitte pruefen Sie den Upload und Export der Dateien";
             mailBody += "\n";
-            String meldung = new String("");
+            StringBuilder meldung = new StringBuilder();
             for (Iterator<String> iterator = meldungenArrayList.iterator(); iterator.hasNext();)
             {
-                meldung += (String) iterator.next() + "\n";
+                meldung.append((String) iterator.next()).append("\n");
 
             }
             System.out.println(meldung);
@@ -193,17 +186,17 @@ public class FtpStatusEmailAlertProvider
 	/*
 	 * Methode wird nicht mehr genutzt, weshalb sie ausgeblendet wird.
 	 */
-    
+
     /**
-     * 
-     * Description:
-     * 
-     * @param fileNameString
-     * @param mySqlConfigMap
-     * @return
-     *         Creation: 27.11.2018 by mst
-     * @throws SQLException
-     * @Deprecated
+     * Retrieves the CRC checksum for a given file name from the database.
+     * The method connects to the database using the provided configuration,
+     * checks if the file exists in the database, and retrieves its checksum
+     * if found.
+     *
+     * @param fileNameString the name of the file whose CRC checksum is to be retrieved
+     * @param mySqlConfigMap a map containing the MySQL database configuration parameters
+     * @return the CRC checksum of the file as a {@code Long}, or {@code null} if the file does not exist in the database
+     * @throws SQLException if a database access error occurs
      */
     public Long getCrcChecksumFromDatabase(final String fileNameString, final Map<String, String> mySqlConfigMap) throws SQLException
     {
@@ -245,7 +238,7 @@ public class FtpStatusEmailAlertProvider
 
     /**
      * E-Mail mit Anhang aus Stream mit Apache Commons Email versenden
-     * (http://commons.apache.org/proper/commons-email/apidocs/index.html)
+     * (<a href="http://commons.apache.org/proper/commons-email/apidocs/index.html">...</a>)
      */
     public static String sendeEmail(String mailserver, String username, String password, String absender, String[] empfaengerArray, String betreff, String text) throws IOException, EmailException
     {
