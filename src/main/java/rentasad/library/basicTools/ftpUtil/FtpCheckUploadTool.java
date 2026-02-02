@@ -33,11 +33,7 @@ import rentasad.library.configFileTool.ConfigFileToolException;
 public class FtpCheckUploadTool implements IFTPKonfigurationSheetParameter
 {
 
-    /**
-     *
-     * @throws SheetNotFoundException
-     * @throws DataTypeNotDefinedException
-     */
+
     private FtpCheckUploadTool()
     {
     }
