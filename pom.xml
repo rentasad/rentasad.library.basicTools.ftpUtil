@@ -6,7 +6,7 @@
 
 	<groupId>rentasad</groupId>
 	<artifactId>rentasad.library.basicTools.ftpUtil</artifactId>
-	<version>F2.3.4</version>
+	<version>F2.4.0</version>
 	
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

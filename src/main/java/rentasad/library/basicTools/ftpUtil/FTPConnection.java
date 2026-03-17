@@ -13,6 +13,7 @@ import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.List;
 
+import lombok.Setter;
 import lombok.extern.java.Log;
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPFile;
@@ -41,6 +42,7 @@ import rentasad.library.basicTools.ftpUtil.tools.FtpSemaphoreTool;
 public class FTPConnection
 {
     private final ArrayList<String> messageLog = new ArrayList<String>();
+    @Setter
     private boolean debug = false;
     private final FtpSettings ftpSettings;
     private final FTPClient ftpClient = new FTPClient();
@@ -60,6 +62,7 @@ public class FTPConnection
         this.ftpClient.setControlKeepAliveTimeout(20);
         this.semaphoreTool = new FtpSemaphoreTool(this);
         this.crcTool = new FtpCrcTool(this);
+        lombokLog.info("FTPConnection Version " + rentasad.library.basicTools.ftpUtil.Version.VERSION +  ", Build-Date: " + rentasad.library.basicTools.ftpUtil.Version.BUILD_DATE);
     }
 
     /**
