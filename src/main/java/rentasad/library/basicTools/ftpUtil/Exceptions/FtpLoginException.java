@@ -1,5 +1,8 @@
 package rentasad.library.basicTools.ftpUtil.Exceptions;
 
+import lombok.extern.java.Log;
+
+@Log
 public class FtpLoginException extends Exception
 {
 	/**
@@ -24,7 +27,7 @@ public class FtpLoginException extends Exception
 	public String getMessage()
 	{
 		// TODO Auto-generated method stub
-		System.err.println(this.message);
+		lombokLog.severe(this.message);
 		return super.getMessage();
 	}
 

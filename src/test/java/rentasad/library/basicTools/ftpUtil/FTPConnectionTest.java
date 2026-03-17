@@ -2,6 +2,7 @@ package rentasad.library.basicTools.ftpUtil;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
@@ -10,12 +11,16 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.util.Date;
 import java.util.List;
 
 import org.apache.commons.net.ftp.FTPFile;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import rentasad.library.basicTools.ftpUtil.Exceptions.FtpLoginException;
+import rentasad.library.basicTools.ftpUtil.objects.FtpSemaphore;
 import rentasad.library.basicTools.ftpUtil.objects.FtpSettings;
 
 public class FTPConnectionTest
@@ -23,41 +28,26 @@ public class FTPConnectionTest
 	/**
 	 * Here you should configure the TEST FTP-SERVER for unti testing
 	 */
-	private final String FTP_HOSTNAME = "";
-	private final String FTP_USERNAME = "";
-	private final String FTP_PASSWORD = "";
+	private final String FTP_HOSTNAME = "127.0.0.1";
+	private final String FTP_USERNAME = "user";
+	private final String FTP_PASSWORD = "123";
 	private final Integer FTP_PORT = 21;
 	
 	
     FTPConnection ftpConnection = null;;
     boolean startTest;
 
-    // @BeforeAll
+    @BeforeEach
     /**
      * Only test if test system is windows based
      * @throws Exception
      */
     public void setUp() throws Exception
     {
-        String osString = System.getProperty("os.name");
-        if (osString.length() < 7)
-        {
-            startTest = false;
-        } else
-        {
-            String winString = osString.substring(0, 7);
-            if (winString.equalsIgnoreCase("Windows"))
-            {
-                this.startTest = true;
-            } else
-            {
-                this.startTest = false;
-            }
-        }
-
+        this.startTest = true;
     }
 
-    // @AfterAll
+    @AfterEach
     public void tearDown() throws Exception
     {
         if (this.ftpConnection != null)
@@ -66,7 +56,7 @@ public class FTPConnectionTest
         }
     }
 
-    // @Test
+    @Test
     public void testGetFTPFileList() throws Exception
     {
         if (startTest)
@@ -85,7 +75,7 @@ public class FTPConnectionTest
         }
     }
 
-    // @Test(expected = FtpLoginException.class)
+    @Test
     public void testGetFTPFileListWrongUsername() throws Exception
     {
         if (startTest)
@@ -95,41 +85,35 @@ public class FTPConnectionTest
             settings.setFtpPassword(FTP_PASSWORD);
             settings.setFtpPort(FTP_PORT);
             settings.setFtpHost(FTP_HOSTNAME);
-            settings.setFtpUsername(FTP_USERNAME);
+            settings.setFtpUsername("WRONG_USER");
             this.ftpConnection = new FTPConnection(settings);
 
-            assertNotNull(ftpConnection.getFTPFileList(), "Objekt wird Null zuraeckgegeben");
-
-            // throw new RuntimeException("not yet implemented");
-        } else
-        {
-            throw new FtpLoginException("TEST DEAKTIVIERT - Exception fuer erwartetes Ergebnis geworfen");
+            assertThrows(FtpLoginException.class, () -> {
+                ftpConnection.getFTPFileList();
+            });
         }
     }
 
-    // @Test(expected = FtpLoginException.class)
+    @Test
     public void testGetFTPFileListWrongPassword() throws Exception
     {
         if (startTest)
         {
             /* Falscher Benutzername */
             FtpSettings settings = new FtpSettings();
-            settings.setFtpPassword(FTP_PASSWORD);
+            settings.setFtpPassword("WRONG_PASSWORD");
             settings.setFtpPort(FTP_PORT);
             settings.setFtpHost(FTP_HOSTNAME);
             settings.setFtpUsername(FTP_USERNAME);
             this.ftpConnection = new FTPConnection(settings);
 
-            assertNotNull(ftpConnection.getFTPFileList());
-
-            // throw new RuntimeException("not yet implemented");
-        } else
-        {
-            throw new FtpLoginException("TEST DEAKTIVIERT - Exception fuer erwartetes Ergebnis geworfen");
+            assertThrows(FtpLoginException.class, () -> {
+                ftpConnection.getFTPFileList();
+            });
         }
     }
 
-    // @Test(expected = UnknownHostException.class)
+    @Test
     public void testGetFTPFileListWrongHostname() throws Exception
     {
         if (startTest)
@@ -138,19 +122,16 @@ public class FTPConnectionTest
             FtpSettings settings = new FtpSettings();
             settings.setFtpPassword(FTP_PASSWORD);
             settings.setFtpPort(FTP_PORT);
-            settings.setFtpHost(FTP_HOSTNAME);
+            settings.setFtpHost("wrong-hostname-that-does-not-exist.local");
             settings.setFtpUsername(FTP_USERNAME);
             this.ftpConnection = new FTPConnection(settings);
-            assertNotNull(ftpConnection.getFTPFileList());
-
-            // throw new RuntimeException("not yet implemented");
-        } else
-        {
-            throw new UnknownHostException();
+            assertThrows(UnknownHostException.class, () -> {
+                ftpConnection.getFTPFileList();
+            });
         }
     }
 
-    // @Test
+    @Test
     public void testConnect() throws SocketException, IOException, FtpLoginException
     {
         if (startTest)
@@ -166,7 +147,7 @@ public class FTPConnectionTest
         }
     }
 
-    // @Test
+    @Test
     public void testDownloadCorrectParameters() throws Exception
     {
         if (startTest)
@@ -182,13 +163,28 @@ public class FTPConnectionTest
             settings.setFtpUsername(FTP_USERNAME);
             this.ftpConnection = new FTPConnection(settings);
 
+            // Zuerst eine Datei hochladen, um sie dann herunterzuladen
+            String localSourceFileName = "resources/unittest/crcValueFileTest.csv";
+            String remoteResultFileName = "downloadTest.csv";
+            this.ftpConnection.upload(localSourceFileName, remoteResultFileName);
+
             List<FTPFile> ftpFiles = ftpConnection.getFTPFileList();
-            FTPFile file = ftpFiles.get(0);
-            assertTrue(this.ftpConnection.download("g:/transfer/" + file.getName(), file), "Download fehlgeschlagen");
+            FTPFile file = null;
+            for (FTPFile f : ftpFiles) {
+                if (f.getName().equals(remoteResultFileName)) {
+                    file = f;
+                    break;
+                }
+            }
+            assertNotNull(file);
+            File localResultFile = File.createTempFile("download_", ".csv");
+            assertTrue(this.ftpConnection.download(localResultFile.getAbsolutePath(), file), "Download fehlgeschlagen");
+            localResultFile.delete();
+            this.ftpConnection.deleteFileFromFtp(remoteResultFileName);
         }
     }
 
-    // @Test
+    @Test
     public void testDownloadNotExistentFile() throws Exception
     {
         if (startTest)
@@ -204,29 +200,30 @@ public class FTPConnectionTest
             settings.setFtpUsername(FTP_USERNAME);
             this.ftpConnection = new FTPConnection(settings);
 
-            List<FTPFile> ftpFiles = ftpConnection.getFTPFileList();
-            FTPFile file = ftpFiles.get(0);
+            FTPFile file = new FTPFile();
             file.setName("WRONG.TXT");
-            assertFalse(this.ftpConnection.download("ressources/" + file.getName(), file), "Falscher Raeckgabewert");
+            file.setSize(100);
+            assertFalse(this.ftpConnection.download("resources/WRONG.TXT", file), "Falscher Raeckgabewert");
         }
     }
 
-    // @Test
+    @Test
     public void testUpload() throws Exception
     {
-//        if (startTest)
-//        {
-//            // throw new RuntimeException("not yet implemented");
-//            FtpSettings settings = new FtpSettings();
-//        settings.setFtpPassword(FTP_PASSWORD);
-//        settings.setFtpPort(FTP_PORT);
-//        settings.setFtpHost(FTP_HOSTNAME);
-//        settings.setFtpUsername(FTP_USERNAME);
-//            this.ftpConnection = new FTPConnection(settings);
-//            System.out.println("aebertrag auftrag.xml");
-//            assertTrue(this.ftpConnection.upload("g:/Abteilungen/IT/05 Development/Java Workspace Gustini/Rentasad Library/test/Daten/FTP/auftrag/auftrag.xml", "auftrag.xml"));
-//
-//        }
+        if (startTest)
+        {
+            FtpSettings settings = new FtpSettings();
+            settings.setFtpPassword(FTP_PASSWORD);
+            settings.setFtpPort(FTP_PORT);
+            settings.setFtpHost(FTP_HOSTNAME);
+            settings.setFtpUsername(FTP_USERNAME);
+            this.ftpConnection = new FTPConnection(settings);
+            String localFile = "resources/unittest/crcValueFileTest.csv";
+            String remoteFile = "uploadTest.xml";
+            assertTrue(this.ftpConnection.upload(localFile, remoteFile));
+            assertTrue(this.ftpConnection.existFile(remoteFile));
+            this.ftpConnection.deleteFileFromFtp(remoteFile);
+        }
     }
 
     @Test
@@ -234,32 +231,23 @@ public class FTPConnectionTest
     {
         if (startTest)
         {
-//            FtpSettings settings = new FtpSettings();
-//            settings.setFtpPassword(FTP_PASSWORD);
-//            settings.setFtpPort(FTP_PORT);
-//            settings.setFtpHost(FTP_HOSTNAME);
-//            settings.setFtpUsername(FTP_USERNAME);
-//            this.ftpConnection = new FTPConnection(settings);
-//            ftpConnection.connect();
-//            String filename = "export_article_ean.csv";
-//            System.out.println(filename);
-//            try
-//            {
-//                assertTrue(this.ftpConnection.existFile(filename));
-//            } catch (IOException e)
-//            {
-//                e.printStackTrace();
-//            }
-//            ftpConnection.disconnect();
+            FtpSettings settings = new FtpSettings();
+            settings.setFtpPassword(FTP_PASSWORD);
+            settings.setFtpPort(FTP_PORT);
+            settings.setFtpHost(FTP_HOSTNAME);
+            settings.setFtpUsername(FTP_USERNAME);
+            this.ftpConnection = new FTPConnection(settings);
+            ftpConnection.connect();
+            String localFile = "resources/unittest/crcValueFileTest.csv";
+            String filename = "existTest.csv";
+            this.ftpConnection.upload(localFile, filename);
+            assertTrue(this.ftpConnection.existFile(filename));
+            this.ftpConnection.deleteFileFromFtp(filename);
+            ftpConnection.disconnect();
         }
     }
 
-    // @Test
-    /**
-     * Nicht existierendes File
-     * 
-     * @throws Exception
-     */
+    @Test
     public void testExistFileNotExistent() throws Exception
     {
         if (startTest)
@@ -270,63 +258,36 @@ public class FTPConnectionTest
             settings.setFtpHost(FTP_HOSTNAME);
             settings.setFtpUsername(FTP_USERNAME);
             this.ftpConnection = new FTPConnection(settings);
-            System.out.println("aebertrag auftrag.xml");
-            try
-            {
-                assertFalse(this.ftpConnection.existFile("auftrag2.xml"));
-            } catch (IOException e)
-            {
-                e.printStackTrace();
-            }
+            assertFalse(this.ftpConnection.existFile("auftrag2.xml"));
         }
     }
 
-    // @Test(expected = FileNotFoundException.class)
-    /**
-     * (expected = IOException.class)
-     * 
-     * @throws Exception
-     */
+    @Test
     public void testGetCRCFromInputStreamFileNotExist() throws Exception
     {
         if (startTest)
         {
-            String fileName = "g:/lala.gfx";
-            FileInputStream fileInputStream = new FileInputStream(new File(fileName));
-            Long crcLong = Long.valueOf(FTPConnection.getCRCFromInputStream(fileInputStream));
-            assertNotNull(crcLong);
-        } else
-        {
-            throw new FileNotFoundException("TEST DEAKTIVIERT - Exception fuer erwartetes Ergebnis geworfen");
+            String fileName = "resources/unittest/nonexistent.file";
+            assertThrows(FileNotFoundException.class, () -> {
+                new FileInputStream(new File(fileName));
+            });
         }
     }
 
-    // g:/Abteilungen/IT/05 Development/Java Workspace Gustini/Rentasad Library/test/Daten/FTP/auftrag/Adressen.xml
-    // @Test
-    /**
-     * @throws Exception
-     */
+    @Test
     public void testGetCRCFromInputStreamFileExist() throws Exception
     {
         if (startTest)
         {
-            String fileName = "g:/Abteilungen/IT/05 Development/Java Workspace Gustini/Rentasad Library/test/Daten/FTP/auftrag/Adressen.xml";
+            String fileName = "resources/unittest/crcValueFileTest.csv";
             FileInputStream fileInputStream = new FileInputStream(new File(fileName));
-            Long crcLong = null;
-            crcLong = Long.valueOf(FTPConnection.getCRCFromInputStream(fileInputStream));
-            System.out.println(crcLong);
-            // assertNotNull(crcLong);
+            Long crcLong = Long.valueOf(FTPConnection.getCRCFromInputStream(fileInputStream));
+            assertNotNull(crcLong);
+            assertTrue(crcLong > 0);
         }
     }
 
-    // @Test
-    /**
-     * 
-     * Description: Ermittelt SHA1 CRC von FTP-File wenn FTP-Server das unterstützt
-     * 
-     * @throws Exception
-     *             Creation: 27.11.2018 by mst
-     */
+    @Test
     public void testGetShaHashsumCrcFromFtpFile() throws Exception
     {
         FtpSettings settings = new FtpSettings();
@@ -336,12 +297,16 @@ public class FTPConnectionTest
         settings.setFtpUsername(FTP_USERNAME);
         this.ftpConnection = new FTPConnection(settings);
         ftpConnection.connect();
-        String filename = "export_article_ean.csv";
+        String localFile = "resources/unittest/crcValueFileTest.csv";
+        String filename = "shaTest.csv";
+        this.ftpConnection.upload(localFile, filename);
         String[] shaStringArray = this.ftpConnection.getShaHashsumFromFtpFile(filename);
-        for (String sha : shaStringArray)
-        {
-            System.out.println(String.format("%s: %s", filename, sha));
+        if (shaStringArray != null) {
+            for (String sha : shaStringArray) {
+                System.out.println(String.format("%s: %s", filename, sha));
+            }
         }
+        this.ftpConnection.deleteFileFromFtp(filename);
         ftpConnection.disconnect();
 
     }
@@ -388,5 +353,48 @@ public class FTPConnectionTest
         ftpConnection.deleteFileFromFtp(remoteResultFileName);
         ftpConnection.deleteFileFromFtp(remoteResultCrcFileName);
         ftpConnection.disconnect();
+    }
+
+    @Test
+    public void testSemaphoreManagement() throws Exception
+    {
+        FtpSettings settings = new FtpSettings();
+        settings.setFtpPassword(FTP_PASSWORD);
+        settings.setFtpPort(FTP_PORT);
+        settings.setFtpHost(FTP_HOSTNAME);
+        settings.setFtpUsername(FTP_USERNAME);
+        this.ftpConnection = new FTPConnection(settings);
+
+        // 1. Ensure no semaphore exists
+        if (this.ftpConnection.existSemaphoreInFtpRootDirectory()) {
+            this.ftpConnection.removeSemaphoreInFtpRootDirectory();
+        }
+        assertFalse(this.ftpConnection.existSemaphoreInFtpRootDirectory());
+
+        // 2. Create semaphore
+        assertTrue(this.ftpConnection.createSemaphoreInFtpRootDirectory());
+        assertTrue(this.ftpConnection.existSemaphoreInFtpRootDirectory());
+
+        // 3. Get details
+        FtpSemaphore details = this.ftpConnection.getSemaphoreDetails();
+        assertTrue(details.isExists());
+        assertNotNull(details.getCreationDate());
+        assertTrue(details.getFileSize() > 0);
+        System.out.println("Current Time: " + new Date());
+        System.out.println("Semaphore Creation Date: " + details.getCreationDate());
+        System.out.println("Semaphore Details: " + details);
+
+        // 4. Test clear if older than (should NOT clear as it's new)
+        // We use a very large threshold to ensure it's not cleared
+        assertFalse(this.ftpConnection.clearSemaphoreIfOlderThan(1000 * 60 * 60 * 24)); // 24 hours
+        assertTrue(this.ftpConnection.existSemaphoreInFtpRootDirectory());
+
+        // 5. Test clear if older than (SHOULD clear as we use a small threshold)
+        // Since FTP timestamps might be in the past or truncated, we wait and use a 0 threshold if needed
+        Thread.sleep(2000); 
+        assertTrue(this.ftpConnection.clearSemaphoreIfOlderThan(0)); // 0 ms should always trigger if exists
+        assertFalse(this.ftpConnection.existSemaphoreInFtpRootDirectory());
+
+        this.ftpConnection.disconnect();
     }
 }

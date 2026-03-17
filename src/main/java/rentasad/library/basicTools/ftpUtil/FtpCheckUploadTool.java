@@ -1,7 +1,9 @@
 package rentasad.library.basicTools.ftpUtil;
 
 import java.io.File;
+import lombok.extern.java.Log;
 import java.io.IOException;
+import java.nio.file.FileSystems;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
@@ -30,10 +32,10 @@ import rentasad.library.configFileTool.ConfigFileToolException;
  *         Description:
  *
  */
+@Log
 public class FtpCheckUploadTool implements IFTPKonfigurationSheetParameter
 {
-
-
+    static boolean  debug = false;
     private FtpCheckUploadTool()
     {
     }
@@ -54,23 +56,22 @@ public class FtpCheckUploadTool implements IFTPKonfigurationSheetParameter
      * pruefenden FTP-Dateien bzw. ob sie vorraetig sind.
      * Description:
      * 
-     * @param konfigurationSheet
      * @return
      * @throws FtpUtilException
      *             Creation: 09.03.2017 by mst
      */
     public static Collection<FtpFileStatus> getFtpFileStatusCollection(final Map<String, String> configMap) throws FtpUtilException
     {
-        boolean debug = false;
+
         String ftpServer = configMap.get(PARAMETER_NAME_FTP_HOST);
         String ftpUsername = configMap.get(PARAMETER_NAME_FTP_USERNAME);
         String ftpPassword = configMap.get(PARAMETER_NAME_FTP_PASSWORT);
         String localArchivDir = configMap.get(PARAMETER_NAME_LOCAL_ARCHIV_DIR);
         String ftpStartDir = configMap.get(PARAMETER_NAME_FTP_START_DIR);
         String crcCheckNeededString = configMap.get(PARAMETER_NAME_CRC_CHECK);
-        Boolean crcCheckNeeded = Boolean.valueOf(crcCheckNeededString);
+        boolean crcCheckNeeded = Boolean.parseBoolean(crcCheckNeededString);
         String ftpServerTimeDifferenceString = configMap.get(PARAMETER_NAME_FTP_SERVER_TIME_DIFFERENCE_MINUTES);
-        int ftpServerTimeDifference = Integer.valueOf(ftpServerTimeDifferenceString);
+        int ftpServerTimeDifference = Integer.parseInt(ftpServerTimeDifferenceString);
         FtpSettings ftpSettings = new FtpSettings(ftpServer, ftpUsername, ftpPassword);
         FTPConnection ftpConnection = new FTPConnection(ftpSettings);
         // FTP Verbindung herstellen
@@ -78,12 +79,12 @@ public class FtpCheckUploadTool implements IFTPKonfigurationSheetParameter
         {
             if (ftpConnection.connect())
             {
-                if (ftpStartDir.equals("") == false)
+                if (!ftpStartDir.isEmpty())
                 {// Wenn Startverzeichnis definiert wurde in Tabelle
-                    boolean changeDirSuccessfull = ftpConnection.changeDir(ftpStartDir);
-                    System.out.println("Verzeichniswechsel in " + ftpStartDir + "erfolgreich? " + changeDirSuccessfull);
+                    boolean changeDirSuccessfully = ftpConnection.changeDir(ftpStartDir);
+                    lombokLog.info("Verzeichniswechsel in " + ftpStartDir + "erfolgreich? " + changeDirSuccessfully);
                 }
-                final int fileToCheckCount = Integer.valueOf(configMap.get(PARAMETER_NAME_CHECK_FILES_COUNT));
+                final int fileToCheckCount = Integer.parseInt(configMap.get(PARAMETER_NAME_CHECK_FILES_COUNT));
                 String[] fileNamesToCheck = new String[fileToCheckCount];
                 int[] fileMaxAgeArray = new int[fileToCheckCount];
                 boolean existSemaphore = ftpConnection.existSemaphoreInFtpRootDirectory();
@@ -97,7 +98,7 @@ public class FtpCheckUploadTool implements IFTPKonfigurationSheetParameter
                         String fileNameEntry = configMap.get(fileNameWithNr);
                         String fileMaxAgeEntry = configMap.get(fileMaxAgeWithNr);
                         fileNamesToCheck[i] = fileNameEntry;
-                        fileMaxAgeArray[i] = Integer.valueOf(fileMaxAgeEntry);
+                        fileMaxAgeArray[i] = Integer.parseInt(fileMaxAgeEntry);
                     } else
                     {
                         // Fehler im Programm --> Verbindung wird geschlossen.
@@ -113,13 +114,12 @@ public class FtpCheckUploadTool implements IFTPKonfigurationSheetParameter
                 for (int i = 0; i < fileNamesToCheck.length; i++)
                 {
 
-                    String fileName = fileNamesToCheck[i];
+                    String fileNameWithPath = fileNamesToCheck[i];
                     int fileMaxAgeInMinutes = fileMaxAgeArray[i];
-                    File localFile = new File(localArchivDir + System.getProperty("file.separator") + fileName);
+                    File localFile = new File(localArchivDir + FileSystems.getDefault().getSeparator() + fileNameWithPath);
                     boolean existLocalFile = localFile.exists();
 
                     // String fileNameWithPath = "/" + ftpStartDir + "/"+ fileName;
-                    String fileNameWithPath = fileName;
                     boolean existFtpFile = ftpFilesHashTable.containsKey(fileNameWithPath);
                     FTPFile ftpFile = null;
                     if (existFtpFile)
@@ -129,9 +129,9 @@ public class FtpCheckUploadTool implements IFTPKonfigurationSheetParameter
                     }
 
                     if (debug)
-                        System.out.println(fileNameWithPath);
+                        lombokLog.info(fileNameWithPath);
                     if (debug)
-                        System.out.println("Lokal existiert:" + existLocalFile + ", FTP existiert: " + existFtpFile);
+                        lombokLog.info("Lokal existiert:" + existLocalFile + ", FTP existiert: " + existFtpFile);
 
                     FtpFileStatus fileStatus = new FtpFileStatus(ftpFile, localFile);
                     fileStatus.setFileName(fileNameWithPath);

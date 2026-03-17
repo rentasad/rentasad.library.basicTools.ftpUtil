@@ -4,23 +4,72 @@ import java.io.File;
 import java.util.Calendar;
 import java.util.Date;
 
+import lombok.Getter;
+import lombok.Setter;
 import org.apache.commons.net.ftp.FTPFile;
 
+@Setter @Getter
 public class FtpFileStatus
 {
-	
-	
-	FTPFile ftpFile;
-	File localFile;
+
+	/**
+	 * Das FTP-File-Objekt.
+	 */
+	private FTPFile ftpFile;
+
+	/**
+	 * Das lokale File-Objekt.
+	 */
+	private File localFile;
+
+	/**
+	 * Der Dateiname.
+	 */
 	private String fileName;
+
+	/**
+	 * Gibt an, ob die Datei auf dem FTP-Server existiert.
+	 */
 	private boolean existFTPFile;
+
+	/**
+	 * Gibt an, ob die lokale Datei existiert.
+	 */
 	private boolean existLocalFile;
+
+	/**
+	 * Differenz zwischen lokaler Systemzeit und FTP-Serverzeit in Minuten.
+	 */
 	private int ftpServerTimeDifference;
+
+	/**
+	 * Zeitstempel der Datei auf dem FTP-Server.
+	 */
 	private Calendar timestampFtpFile;
+
+	/**
+	 * Zeitstempel der lokalen Datei.
+	 */
 	private Calendar timestampLocalFile;
+
+	/**
+	 * Zeitdifferenz zwischen den Dateien.
+	 */
 	private Date timeBetweenFiles;
+
+	/**
+	 * Maximales Alter der Datei in Minuten.
+	 */
 	private int maxAgeInMinutes;
+
+	/**
+	 * Gibt an, ob eine Semaphor-Datei existiert.
+	 */
 	private boolean semaphoreExist;
+
+	/**
+	 * Gibt an, ob eine CRC-Prüfung erforderlich ist.
+	 */
 	private boolean crcCheckNeeded;
 	
 	
@@ -33,147 +82,6 @@ public class FtpFileStatus
 		super();
 		this.ftpFile = ftpFile;
 		this.localFile = localFile;
-	}
-
-	
-	
-	
-	/**
-	 * @return the maxAgeInMinutes
-	 */
-	public int getMaxAgeInMinutes()
-	{
-		return maxAgeInMinutes;
-	}
-
-
-
-
-	/**
-	 * @param maxAgeInMinutes the maxAgeInMinutes to set
-	 */
-	public void setMaxAgeInMinutes(int maxAgeInMinutes)
-	{
-		this.maxAgeInMinutes = maxAgeInMinutes;
-	}
-
-
-
-
-	/**
-	 * @return the ftpFile
-	 */
-	public FTPFile getFtpFile()
-	{
-		return ftpFile;
-	}
-
-	/**
-	 * @param ftpFile the ftpFile to set
-	 */
-	public void setFtpFile(FTPFile ftpFile)
-	{
-		this.ftpFile = ftpFile;
-	}
-
-	/**
-	 * @return the localFile
-	 */
-	public File getLocalFile()
-	{
-		return localFile;
-	}
-
-	/**
-	 * @param localFile the localFile to set
-	 */
-	public void setLocalFile(File localFile)
-	{
-		this.localFile = localFile;
-	}
-
-	/**
-	 * @return the existFTPFile
-	 */
-	public boolean isExistFTPFile()
-	{
-		return existFTPFile;
-	}
-
-	/**
-	 * @param existFTPFile the existFTPFile to set
-	 */
-	public void setExistFTPFile(boolean existFTPFile)
-	{
-		this.existFTPFile = existFTPFile;
-	}
-
-	/**
-	 * @return the existLocalFile
-	 */
-	public boolean isExistLocalFile()
-	{
-		return existLocalFile;
-	}
-
-	/**
-	 * @param existLocalFile the existLocalFile to set
-	 */
-	public void setExistLocalFile(boolean existLocalFile)
-	{
-		this.existLocalFile = existLocalFile;
-	}
-
-	
-
-	/**
-	 * @return the timestampFtpFile
-	 */
-	public Calendar getTimestampFtpFile()
-	{
-		return timestampFtpFile;
-	}
-
-	/**
-	 * @param timestampFtpFile the timestampFtpFile to set
-	 */
-	public void setTimestampFtpFile(Calendar timestampFtpFile)
-	{
-		this.timestampFtpFile = timestampFtpFile;
-	}
-
-
-
-	/**
-	 * @return the timestampLocalFile
-	 */
-	public Calendar getTimestampLocalFile()
-	{
-		return timestampLocalFile;
-	}
-
-	/**
-	 * @param timestampLocalFile the timestampLocalFile to set
-	 */
-	public void setTimestampLocalFile(Calendar timestampLocalFile)
-	{
-		this.timestampLocalFile = timestampLocalFile;
-	}
-
-	/**
-	 * @return the timeBetweenFiles
-	 */
-	public Date getTimeBetweenFiles()
-	{
-		return timeBetweenFiles;
-	}
-
-	/**
-	 * @param timeBetweenFiles the timeBetweenFiles to set
-	 */
-	public void setTimeBetweenFiles(Date timeBetweenFiles)
-	{
-		this.timeBetweenFiles = timeBetweenFiles;
 	}
 
 	/**
@@ -206,97 +114,4 @@ public class FtpFileStatus
 		return timeNow - timeLocalFile;
 	}
 
-
-
-
-	/**
-	 * @return the fileName
-	 */
-	public String getFileName()
-	{
-		return fileName;
-	}
-
-
-
-
-	/**
-	 * @param fileName the fileName to set
-	 */
-	public void setFileName(String fileName)
-	{
-		this.fileName = fileName;
-	}
-
-
-
-
-	/**
-	 * Differenz zwischen lokaler Systemzeit und FTP-Serverzeit in Minuten
-	 * @return the ftpServerTimeDifference
-	 */
-	public int getFtpServerTimeDifference()
-	{
-		return ftpServerTimeDifference;
-	}
-
-
-
-
-	/**
-	 * Differenz zwischen lokaler Systemzeit und FTP-Serverzeit in Minuten
-	 * @param ftpServerTimeDifference the ftpServerTimeDifference to set
-	 */
-	public void setFtpServerTimeDifference(int ftpServerTimeDifference)
-	{
-		this.ftpServerTimeDifference = ftpServerTimeDifference;
-	}
-
-
-
-
-    /**
-     * @return the semaphoreExist
-     */
-    public boolean isSemaphoreExist()
-    {
-        return semaphoreExist;
-    }
-
-
-
-
-    /**
-     * @param semaphoreExist the semaphoreExist to set
-     */
-    public void setSemaphoreExist(boolean semaphoreExist)
-    {
-        this.semaphoreExist = semaphoreExist;
-    }
-
-
-
-
-    /**
-     * @return the crcCheckNeeded
-     */
-    public boolean isCrcCheckNeeded()
-    {
-        return crcCheckNeeded;
-    }
-
-
-
-
-    /**
-     * @param crcCheckNeeded the crcCheckNeeded to set
-     */
-    public void setCrcCheckNeeded(boolean crcCheckNeeded)
-    {
-        this.crcCheckNeeded = crcCheckNeeded;
-    }
-
-	
-	
-	
 }

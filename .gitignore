@@ -1,3 +1,4 @@
 target/
 .settings/
 resources/config/printUnitTest.ini
+/pom.xml.versionsBackup

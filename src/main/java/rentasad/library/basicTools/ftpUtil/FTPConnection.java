@@ -1,10 +1,8 @@
 package rentasad.library.basicTools.ftpUtil;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
@@ -14,33 +12,74 @@ import java.util.Date;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.List;
-import java.util.zip.CRC32;
 
+import lombok.Setter;
+import lombok.extern.java.Log;
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPFile;
 import org.apache.commons.net.ftp.FTPReply;
 
-import rentasad.library.basicTools.NumberTools;
 import rentasad.library.basicTools.ftpUtil.Exceptions.FtpLoginException;
+import rentasad.library.basicTools.ftpUtil.objects.FtpSemaphore;
 import rentasad.library.basicTools.ftpUtil.objects.FtpSettings;
+import rentasad.library.basicTools.ftpUtil.tools.FtpCrcTool;
+import rentasad.library.basicTools.ftpUtil.tools.FtpSemaphoreTool;
 
+/**
+ * Die Klasse FTPConnection bietet Funktionalitäten zum Verwalten von Verbindungen zu einem FTP-Server
+ * und zum Ausführen verschiedener Dateioperationen wie Hochladen, Herunterladen und Verwalten von Dateien.
+ * Sie kapselt die Einstellungen für die FTP-Verbindung und verwendet einen {@link FTPClient} zum Ausführen der Operationen.
+ * <p>
+ * Diese Klasse wurde refaktoriert, um CRC- und Semaphore-Logik in spezialisierte Tool-Klassen auszulagern:
+ * <ul>
+ *   <li>{@link FtpCrcTool} - Für CRC32-Checksummen-Operationen</li>
+ *   <li>{@link FtpSemaphoreTool} - Für die Verwaltung von Lock-Dateien (Semaphoren)</li>
+ * </ul>
+ * <p>
+ * Die Klasse wahrt Abwärtskompatibilität, indem sie die ursprünglichen Methoden beibehält und intern an die Tools delegiert.
+ */
+@Log
 public class FTPConnection
 {
-    private ArrayList<String> messageLog = new ArrayList<String>();
+    private final ArrayList<String> messageLog = new ArrayList<String>();
+    @Setter
     private boolean debug = false;
-    private FtpSettings ftpSettings;
-    private FTPClient ftpClient = new FTPClient();
+    private final FtpSettings ftpSettings;
+    private final FTPClient ftpClient = new FTPClient();
     private boolean verbose = true;
     private boolean showMessages = true;
+    private final FtpSemaphoreTool semaphoreTool;
+    private final FtpCrcTool crcTool;
 
+    /**
+     * @param ftpSettings Die Einstellungen für die FTP-Verbindung (Host, Port, User, Passwort).
+     */
     public FTPConnection(
                          FtpSettings ftpSettings)
     {
         super();
         this.ftpSettings = ftpSettings;
         this.ftpClient.setControlKeepAliveTimeout(20);
+        this.semaphoreTool = new FtpSemaphoreTool(this);
+        this.crcTool = new FtpCrcTool(this);
+        lombokLog.info("FTPConnection Version " + rentasad.library.basicTools.ftpUtil.Version.VERSION +  ", Build-Date: " + rentasad.library.basicTools.ftpUtil.Version.BUILD_DATE);
     }
 
+    /**
+     * @return Der verwendete {@link FTPClient}
+     */
+    public FTPClient getFtpClient()
+    {
+        return ftpClient;
+    }
+
+    /**
+     * Ermittelt die Dateigröße einer Datei auf dem FTP-Server.
+     *
+     * @param filePath Pfad zur Datei auf dem FTP-Server.
+     * @return Die Dateigröße in Byte.
+     * @throws Exception Wenn ein Fehler beim Abrufen der Dateiliste auftritt.
+     */
     public long getFileSize(String filePath) throws Exception
     {
         long fileSize = 0;
@@ -54,120 +93,124 @@ public class FTPConnection
         return fileSize;
     }
 
+    /**
+     * Berechnet die CRC-Checksumme einer entfernten Datei auf dem FTP-Server.
+     * Nutzt intern das {@link FtpCrcTool}.
+     *
+     * @param ftpFile Die Zieldatei.
+     * @param ftpFileCrc Die zugehörige .crc Datei.
+     * @return Die CRC-Checksumme als Long oder null, wenn ein Fehler auftritt.
+     * @throws IOException Bei I/O-Fehlern.
+     * @throws FtpLoginException Bei Fehlern während des Logins.
+     */
     public Long getCrcFromRemoteFtpFile(final FTPFile ftpFile, final FTPFile ftpFileCrc) throws IOException, FtpLoginException
     {
-        File localTempCrcFile = File.createTempFile("crc_", ".crc");
-        boolean downloadSuccess = download(localTempCrcFile.getAbsolutePath(), ftpFileCrc);
-        if (downloadSuccess)
-        {
-            BufferedReader br = new BufferedReader(new FileReader(localTempCrcFile));
-
-            String line;
-            if ((line = br.readLine()) != null)
-            {
-
-                if (NumberTools.isNumericLong(line))
-                {
-                    Long crcLong =  Long.valueOf(line);
-                    br.close();
-                    localTempCrcFile.deleteOnExit();
-                    return crcLong;
-                }else
-                {
-                    br.close();
-                    return null;
-                }
-
-            }else
-            {
-                br.close();
-                return null;
-            }
-        } else
-        {
-            return null;
-        }
+        return crcTool.getCrcFromRemoteFtpFile(ftpFile, ftpFileCrc);
     }
 
     /**
-     * 
-     * Description:
-     * 
-     * @param ftpFilename
-     * @return
-     * @throws IOException
-     *             Creation: 27.11.2018 by mst
+     * Ermittelt den SHA1-Hash einer Datei auf dem FTP-Server unter Verwendung des XSHA1 Befehls.
+     *
+     * @param ftpFilename Name der Datei auf dem Server.
+     * @return Array von Antwort-Strings des Servers, die den Hash enthalten.
+     * @throws IOException Bei Kommunikationsfehlern mit dem FTP-Server.
      */
     public String[] getShaHashsumFromFtpFile(String ftpFilename) throws IOException
     {
         if (FTPReply.isPositiveCompletion(ftpClient.sendCommand("XSHA1", ftpFilename)))
         {
-            String[] reply = ftpClient.getReplyStrings();
-            return reply;
+			return ftpClient.getReplyStrings();
         } else
             return null;
     }
 
+    /**
+     * Erstellt eine Semaphore-Datei (LOCK) im Root-Verzeichnis des FTP-Servers.
+     * Nutzt intern das {@link FtpSemaphoreTool}.
+     *
+     * @return true, wenn die Datei erfolgreich erstellt wurde.
+     * @throws IOException Bei I/O-Fehlern.
+     * @throws FtpLoginException Bei Fehlern während des Logins.
+     */
     public boolean createSemaphoreInFtpRootDirectory() throws IOException, FtpLoginException
     {
-        String tempDir = System.getProperty("java.io.tmpdir");
-        String semaphoreFileName = tempDir + File.separator + "LOCK";
-        PrintWriter writer = new PrintWriter(semaphoreFileName, "UTF-8");
-        writer.println("This is a semphore File");
-        writer.println("Until this File is visibility the files of this folder will be updated");
-        writer.close();
-        File semaphoreFile = new File(semaphoreFileName);
-        if (semaphoreFile.exists())
-        {
-            System.out.println("UPLOAD SEMAPHORE");
-            return upload(semaphoreFileName, semaphoreFile.getName());
-        } else
-        {
-            System.err.println("Fehler beim Erzeugen der Semaphore");
-            return false;
-        }
-    }
-
-    public boolean removeSemaphoreInFtpRootDirectory() throws IOException, FtpLoginException
-    {
-        if (existFile("LOCK"))
-        {
-            System.out.println("REMOVE SEMAPHORE");
-            return deleteFileFromFtp("LOCK");
-        } else
-        {
-            System.err.println("Semaphore existiert nicht auf FTP-Server");
-            return false;
-        }
-    }
-
-    public boolean existSemaphoreInFtpRootDirectory() throws IOException, FtpLoginException
-    {
-        return existFile("LOCK");
+        return semaphoreTool.createSemaphoreInFtpRootDirectory();
     }
 
     /**
-     * Prueft ob die FTP-Verbindung bereits besteht und baut sie gegebenenfalls
-     * auf
+     * Entfernt die Semaphore-Datei (LOCK) aus dem Root-Verzeichnis des FTP-Servers.
      *
-     * @return
-     * @throws SocketException
-     * @throws IOException
-     * @throws rentasad.lib.tools.ftputil.Exceptions.FtpLoginException
+     * @return true, wenn das Löschen erfolgreich war.
+     * @throws IOException Bei I/O-Fehlern.
+     * @throws FtpLoginException Bei Fehlern während des Logins.
+     */
+    public boolean removeSemaphoreInFtpRootDirectory() throws IOException, FtpLoginException
+    {
+        return semaphoreTool.removeSemaphoreInFtpRootDirectory();
+    }
+
+    /**
+     * Prüft, ob eine Semaphore-Datei (LOCK) im Root-Verzeichnis existiert.
+     *
+     * @return true, wenn sie existiert.
+     * @throws IOException Bei I/O-Fehlern.
+     * @throws FtpLoginException Bei Fehlern während des Logins.
+     */
+    public boolean existSemaphoreInFtpRootDirectory() throws IOException, FtpLoginException
+    {
+        return semaphoreTool.existSemaphoreInFtpRootDirectory();
+    }
+
+    /**
+     * Retrieves detailed information about the semaphore (lock) from the FTP server.
+     *
+     * @return FtpSemaphore object with metadata.
+     * @throws IOException If an I/O error occurs.
+     * @throws FtpLoginException If an FTP login error occurs.
+     */
+    public FtpSemaphore getSemaphoreDetails() throws IOException, FtpLoginException
+    {
+        return semaphoreTool.getSemaphoreInfo();
+    }
+
+    /**
+     * Clears the semaphore if it is older than the specified duration.
+     *
+     * @param durationInMilliseconds The age threshold.
+     * @return true if successful.
+     * @throws IOException If an I/O error occurs.
+     * @throws FtpLoginException If an FTP login error occurs.
+     */
+    public boolean clearSemaphoreIfOlderThan(long durationInMilliseconds) throws IOException, FtpLoginException
+    {
+        return semaphoreTool.clearSemaphoreIfOlderThan(durationInMilliseconds);
+    }
+
+    /**
+     * Establishes a connection to the FTP server using the provided FTP settings.
+     * If the connection is successfully established, the method returns true.
+     * The connection process involves establishing a socket connection to the specified
+     * FTP host and port, logging in with the provided username and password, and optionally
+     * entering passive mode if enabled. Any response messages are logged if configured.
+     *
+     * @return true if the FTP client successfully connects to the server, false otherwise
+     * @throws SocketException if a socket-related error occurs during the connection process
+     * @throws IOException if an I/O error occurs while communicating with the FTP server
+     * @throws FtpLoginException if login to the FTP server fails
      */
     public boolean connect() throws SocketException, IOException, FtpLoginException
     {
 
         // int replyCode = -9999;
 
-        if (this.ftpClient.isConnected() == false)
+        if (!this.ftpClient.isConnected())
         {
 
             this.ftpClient.connect(this.ftpSettings.getFtpHost(), this.ftpSettings.getFtpPort());
             if (this.showMessages)
             {
             	ftpClient.enterLocalPassiveMode();
-                System.out.println(ftpClient.getReplyString());
+                lombokLog.info(ftpClient.getReplyString());
                 this.messageLog.add(ftpClient.getReplyString());
             }
             @SuppressWarnings("unused")
@@ -181,7 +224,7 @@ public class FTPConnection
             }
             if (this.showMessages)
             {
-                System.out.println(ftpClient.getReplyString());
+                lombokLog.info(ftpClient.getReplyString());
                 this.messageLog.add(ftpClient.getReplyString());
             }
 
@@ -190,24 +233,27 @@ public class FTPConnection
         return this.ftpClient.isConnected();
     }
 
+    /**
+     * Trennt die Verbindung zum FTP-Server, falls diese noch besteht.
+     *
+     * @throws IOException Bei Fehlern während des Verbindungsabbruchs.
+     */
     public void disconnect() throws IOException
     {
 
-        if (this.ftpClient.isConnected() == true)
+        if (this.ftpClient.isConnected())
         {
             this.ftpClient.disconnect();
         }
     }
 
     /**
+     * Löscht eine Datei vom FTP-Server.
      *
-     * Description: Loescht Datei vom FTP-Server
-     *
-     * @param fileName
-     * @return
-     *         Creation: 12.08.2015 by mst
-     * @throws IOException
-     * @throws FtpLoginException
+     * @param fileName Der Name der zu löschenden Datei.
+     * @return true, wenn das Löschen erfolgreich war.
+     * @throws IOException Bei I/O-Fehlern.
+     * @throws FtpLoginException Bei Fehlern während des Logins.
      */
     public boolean deleteFileFromFtp(String fileName) throws IOException, FtpLoginException
     {
@@ -216,12 +262,13 @@ public class FTPConnection
     }
 
     /**
+     * Ruft eine Liste aller Dateien im aktuellen Verzeichnis des FTP-Servers ab.
+     * Stellt sicher, dass eine Verbindung besteht.
      *
-     * @param ftpSettings
-     * @return
-     * @throws SocketException
-     * @throws IOException
-     * @throws FtpLoginException
+     * @return Liste von {@link FTPFile}-Objekten.
+     * @throws SocketException Bei Netzwerkfehlern.
+     * @throws IOException Bei I/O-Fehlern.
+     * @throws FtpLoginException Bei Fehlern während des Logins.
      */
     public List<FTPFile> getFTPFileList() throws SocketException, IOException, FtpLoginException
     {
@@ -243,18 +290,19 @@ public class FTPConnection
 
         } else
         {
-            System.err.println("Es kam keine FTP-Verbindung zustande");
+            
+            lombokLog.severe("Es kam keine FTP-Verbindung zustande");
         }
         return ftpFileList;
     }
 
     /**
-     * Gibt HashTable mit FileNames und FTPFile zurueck
+     * Gibt eine Hashtable mit Dateinamen als Key und {@link FTPFile}-Objekten als Value zurück.
      *
      * @return Hashtable<String, FTPFile>
-     * @throws SocketException
-     * @throws IOException
-     * @throws FtpLoginException
+     * @throws SocketException Bei Netzwerkfehlern.
+     * @throws IOException Bei I/O-Fehlern.
+     * @throws FtpLoginException Bei Fehlern während des Logins.
      */
     public Hashtable<String, FTPFile> getFtpFileHashTable() throws SocketException, IOException, FtpLoginException
     {
@@ -265,17 +313,36 @@ public class FTPConnection
         {
             FTPFile ftpFile = (FTPFile) iterator.next();
             if (debug)
-                System.out.println("Name Key: " + ftpFile.getName());
+                lombokLog.info("Name Key: " + ftpFile.getName());
             ftpFileHashTable.put(ftpFile.getName(), ftpFile);
         }
         return ftpFileHashTable;
     }
 
+    /**
+     * Lädt eine Datei vom FTP-Server herunter in ein lokales Zielverzeichnis/Datei.
+     *
+     * @param localResultFile Pfad zur lokalen Zieldatei.
+     * @param ftpFile Das zu ladende FTPFile-Objekt.
+     * @return true, wenn der Download erfolgreich war.
+     * @throws IOException Bei I/O-Fehlern.
+     * @throws FtpLoginException Bei Fehlern während des Logins.
+     */
     public boolean download(final String localResultFile, final FTPFile ftpFile) throws IOException, FtpLoginException
     {
         return download(localResultFile, ftpFile, "");
     }
 
+    /**
+     * Lädt eine Datei von einem spezifischen Pfad auf dem FTP-Server herunter.
+     *
+     * @param localResultFilePath Lokaler Pfad, an dem die Datei gespeichert werden soll.
+     * @param ftpFile Das zu ladende FTPFile-Objekt.
+     * @param remoteFtpPath Der Verzeichnispfad auf dem FTP-Server.
+     * @return true, wenn der Download erfolgreich war.
+     * @throws IOException Bei I/O-Fehlern.
+     * @throws FtpLoginException Bei Fehlern während des Logins.
+     */
     public boolean download(final String localResultFilePath, final FTPFile ftpFile, String remoteFtpPath) throws IOException, FtpLoginException
     {
         ftpClient.setBufferSize(1048576);
@@ -285,7 +352,7 @@ public class FTPConnection
         // try
         // {
         this.connect();
-        if (!(remoteFtpPath.equals("")) && (remoteFtpPath != null))
+        if (!(remoteFtpPath.isEmpty()) && (remoteFtpPath != null))
         {
             this.changeDir(remoteFtpPath);
         }
@@ -299,13 +366,13 @@ public class FTPConnection
         }
         if (showMessages)
         {
-            System.out.println(ftpClient.getReplyString());
+            lombokLog.info(ftpClient.getReplyString());
             this.messageLog.add(ftpClient.getReplyString());
         }
         // resultOk &= ftpClient.logout();
         // if (showMessages)
         // {
-        // System.out.println(ftpClient.getReplyString());
+        // lombokLog.info(ftpClient.getReplyString());
         // }
         // }
         // finally
@@ -327,32 +394,35 @@ public class FTPConnection
     }
 
     /**
-     * 
-     * Description: Generate CRC32 from File to upload, upload CRC Info File with upload file
-     * 
-     * @param localSourceFileName
-     * @param remoteResultFileName
-     * @return
-     *         Creation: 27.11.2018 by mst
-     * @throws IOException
-     * @throws FtpLoginException
+     * Lädt eine lokale Datei hoch und erstellt zusätzlich eine .crc Datei mit der CRC32-Checksumme.
+     * Nutzt intern das {@link FtpCrcTool}.
+     *
+     * @param localSourceFileName Lokaler Dateiname.
+     * @param remoteResultFileName Dateiname auf dem FTP-Server.
+     * @return true, wenn beide Dateien erfolgreich hochgeladen wurden.
+     * @throws IOException Bei I/O-Fehlern.
+     * @throws FtpLoginException Bei Fehlern während des Logins.
      */
     public boolean uploadWithCrc(String localSourceFileName, String remoteResultFileName) throws IOException, FtpLoginException
     {
-        Long crc = getCRCFromLocalFile(localSourceFileName);
+        Long crc = FtpCrcTool.getCRCFromLocalFile(localSourceFileName);
         String crcFilename = localSourceFileName + ".crc";
-        PrintWriter writer = new PrintWriter(crcFilename, "UTF-8");
-        writer.println(crc.toString());
-        writer.close();
+        try (PrintWriter writer = new PrintWriter(crcFilename, "UTF-8"))
+        {
+            writer.println(crc.toString());
+        }
         upload(crcFilename, remoteResultFileName + ".crc");
         return upload(localSourceFileName, remoteResultFileName);
     }
 
     /**
-     * FTP-Client-Upload.
+     * Lädt eine Datei auf den FTP-Server hoch.
      *
-     * @return true falls ok
-     * @throws FtpLoginException
+     * @param localSourceFileName Lokaler Pfad zur Quelldatei.
+     * @param remoteResultFileName Zielpfad/Name auf dem FTP-Server.
+     * @return true, wenn der Upload erfolgreich war.
+     * @throws IOException Bei I/O-Fehlern.
+     * @throws FtpLoginException Bei Fehlern während des Logins.
      */
     public boolean upload(String localSourceFileName, String remoteResultFileName) throws IOException, FtpLoginException
     {
@@ -366,20 +436,20 @@ public class FTPConnection
             ftpClient.setBufferSize(1048576);// Beschleunigt FTP-Transfer um hohen Faktor
             fis = new FileInputStream(localSourceFileName);
             if (this.verbose)
-                System.out.println("uebertrage Datei " + localSourceFileName + "...");
+                lombokLog.info("uebertrage Datei " + localSourceFileName + "...");
 
             resultOk &= ftpClient.storeFile(remoteResultFileName, fis);
             showMessages = false;
             if (showMessages)
             {
-                System.out.println(ftpClient.getReplyString());
+                lombokLog.info(ftpClient.getReplyString());
                 this.messageLog.add(ftpClient.getReplyString());
             }
 
             // resultOk &= ftpClient.logout();
             // if (showMessages)
             // {
-            // System.out.println(ftpClient.getReplyString());
+            // lombokLog.info(ftpClient.getReplyString());
             // }
         } finally
         {
@@ -388,7 +458,7 @@ public class FTPConnection
                 if (fis != null)
                 {
                     fis.close();
-                    // System.out.println(ftpClient.getReplyString());
+                    // lombokLog.info(ftpClient.getReplyString());
                     this.messageLog.add(ftpClient.getReplyString());
                 }
             } catch (IOException e)
@@ -400,15 +470,13 @@ public class FTPConnection
     }
 
     /**
-     * Prueft das aktuelle FTP-Verzeichnis darauf ob eine Datei darin existiert.
-     * Dies wird durchgefuehrt, indem eine Liste der vorhandenen Dateien erstellt
-     * wird.
-     * Diese wird anschliessend in einer Schleife durchsucht.
+     * Prüft das aktuelle FTP-Verzeichnis darauf, ob eine Datei darin existiert.
+     * Dies wird durchgeführt, indem eine Liste der vorhandenen Dateien erstellt und durchsucht wird.
      *
-     * @param remotefile
-     * @return
-     * @throws IOException
-     * @throws FtpLoginException
+     * @param remotefile Name der zu prüfenden Datei.
+     * @return true, wenn die Datei existiert.
+     * @throws IOException Bei I/O-Fehlern.
+     * @throws FtpLoginException Bei Fehlern während des Logins.
      */
     public boolean existFile(String remotefile) throws IOException, FtpLoginException
     {
@@ -417,7 +485,7 @@ public class FTPConnection
         FTPFile[] ftpFiles = this.ftpClient.listFiles();
         for (int i = 0; i < ftpFiles.length; i++)
         {
-            System.out.println(ftpFiles[i].getName());
+            lombokLog.info(ftpFiles[i].getName());
             String name = ftpFiles[i].getName();
             if (name.equals(remotefile))
             {
@@ -429,44 +497,49 @@ public class FTPConnection
     }
 
     /**
-     * Gibt eine Checksumme von einem
+     * Berechnet die CRC-Checksumme einer lokalen Datei.
      *
-     * @param fileName
-     * @return
-     * @throws IOException
+     * @param fileName Pfad zur lokalen Datei.
+     * @return CRC-Checksumme als long.
+     * @throws IOException Bei I/O-Fehlern.
      */
     public static long getCRCFromLocalFile(String fileName) throws IOException
     {
-        FileInputStream fileInputStream = new FileInputStream(new File(fileName));
-        return getCRCFromInputStream(fileInputStream);
-    }
-
-    public static Date getTimeStampFromLocalFile(String fileName)
-    {
-        File file = new File(fileName);
-        return new Date(file.lastModified());
+        return FtpCrcTool.getCRCFromLocalFile(fileName);
     }
 
     /**
+     * Liefert den Zeitstempel einer lokalen Datei zurück.
      *
-     * @param inputStream
-     * @return
-     * @throws IOException
+     * @param fileName Name der lokalen Datei.
+     * @return Das Datum der letzten Änderung.
      */
-
-    public static long getCRCFromInputStream(InputStream inputStream) throws IOException
+    public static Date getTimeStampFromLocalFile(String fileName)
     {
-
-        CRC32 crc32 = new CRC32();
-        int counter;
-        while ((counter = inputStream.read()) != -1)
-        {
-            crc32.update(counter);
-        }
-        inputStream.close();
-        return crc32.getValue();
+        return FtpCrcTool.getTimeStampFromLocalFile(fileName);
     }
 
+    /**
+     * Berechnet die CRC-Checksumme eines InputStreams.
+     *
+     * @param inputStream Der zu lesende Stream.
+     * @return CRC-Checksumme als long.
+     * @throws IOException Bei I/O-Fehlern.
+     */
+    public static long getCRCFromInputStream(InputStream inputStream) throws IOException
+    {
+        return FtpCrcTool.getCRCFromInputStream(inputStream);
+    }
+
+    /**
+     * Wechselt das aktuelle Arbeitsverzeichnis auf dem FTP-Server.
+     *
+     * @param dirString Das Zielverzeichnis.
+     * @return true, wenn der Wechsel erfolgreich war oder man sich bereits im Verzeichnis befindet.
+     * @throws SocketException Bei Netzwerkfehlern.
+     * @throws IOException Bei I/O-Fehlern.
+     * @throws FtpLoginException Bei Fehlern während des Logins.
+     */
     public boolean changeDir(String dirString) throws SocketException, IOException, FtpLoginException
     {
         if (connect())
