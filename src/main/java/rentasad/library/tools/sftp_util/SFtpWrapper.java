@@ -7,14 +7,21 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.text.SimpleDateFormat;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.GregorianCalendar;
 import java.util.List;
-import java.util.zip.GZIPInputStream;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
+import java.util.stream.Collectors;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.experimental.FieldDefaults;
 import lombok.extern.java.Log;
 import com.jcraft.jsch.ChannelSftp;
 import com.jcraft.jsch.ChannelSftp.LsEntry;
@@ -34,6 +41,29 @@ public class SFtpWrapper implements AutoCloseable
 {
     private Session     session;
     private ChannelSftp channel;
+
+    /**
+     * Innere Klasse zur Speicherung von Dateimetadaten.
+     */
+    @Getter
+    @Builder
+    @AllArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class FileData
+    {
+        /** Gibt an, ob es sich um eine Datei handelt. */
+        boolean  isFile;
+        /** Gibt an, ob es sich um ein Verzeichnis handelt. */
+        boolean  isDirectory;
+        /** Der Pfad des übergeordneten Verzeichnisses auf dem Server. */
+        String   parentPath;
+        /** Der Name der Datei oder des Verzeichnisses. */
+        String   name;
+        /** Die Größe der Datei in Bytes. */
+        long     size;
+        /** Der Zeitstempel der letzten Änderung. */
+        Instant timestamp;
+    }
 
     /**
      * Erstellt eine neue SFtpWrapper-Instanz und initialisiert eine SFTP-Verbindung.
@@ -149,16 +179,16 @@ public class SFtpWrapper implements AutoCloseable
              return null;
           }
           LsEntry lsEntry = lsEntryLst.get( 0 );
-          FileData fd = new FileData();
           int i = remoteFilePath.lastIndexOf( '/' );
-          fd.parentPath  = ( i < 0 ) ? "" : remoteFilePath.substring( 0, i );
-          fd.isDirectory =  lsEntry.getAttrs().isDir();
-          fd.isFile      = !lsEntry.getAttrs().isDir() && !lsEntry.getAttrs().isLink();
-          fd.name        = lsEntry.getFilename();
-          fd.size        = lsEntry.getAttrs().getSize();
-          fd.timestamp   = Calendar.getInstance();
-          fd.timestamp.setTimeInMillis( 1000L * lsEntry.getAttrs().getMTime() );
-          return fd;
+          String parentPath  = ( i < 0 ) ? "" : remoteFilePath.substring( 0, i );
+          return FileData.builder()
+                         .parentPath( parentPath )
+                         .isDirectory( lsEntry.getAttrs().isDir() )
+                         .isFile( !lsEntry.getAttrs().isDir() && !lsEntry.getAttrs().isLink() )
+                         .name( lsEntry.getFilename() )
+                         .size( lsEntry.getAttrs().getSize() )
+                         .timestamp( Instant.ofEpochSecond( lsEntry.getAttrs().getMTime() ) )
+                         .build();
        } catch( SftpException ex ) {
           throw new IOException( ex );
        }
@@ -178,21 +208,18 @@ public class SFtpWrapper implements AutoCloseable
     public List<FileData> getFileDataList( String remoteDir ) throws IOException
     {
        try {
-          List<FileData> fileDataLst = new ArrayList<FileData>();
           @SuppressWarnings("unchecked")
-          List<ChannelSftp.LsEntry> lsEntryLst = channel.ls( remoteDir );
-          for( LsEntry lsEntry : lsEntryLst ) {
-             FileData fd = new FileData();
-             fd.parentPath  = remoteDir;
-             fd.isDirectory =  lsEntry.getAttrs().isDir();
-             fd.isFile      = !lsEntry.getAttrs().isDir() && !lsEntry.getAttrs().isLink();
-             fd.name        = lsEntry.getFilename();
-             fd.size        = lsEntry.getAttrs().getSize();
-             fd.timestamp   = Calendar.getInstance();
-             fd.timestamp.setTimeInMillis( 1000L * lsEntry.getAttrs().getMTime() );
-             fileDataLst.add( fd );
-          }
-          return fileDataLst;
+          List<LsEntry> lsEntryLst = channel.ls( remoteDir );
+          return lsEntryLst.stream()
+                           .map( lsEntry -> FileData.builder()
+                                                    .parentPath( remoteDir )
+                                                    .isDirectory( lsEntry.getAttrs().isDir() )
+                                                    .isFile( !lsEntry.getAttrs().isDir() && !lsEntry.getAttrs().isLink() )
+                                                    .name( lsEntry.getFilename() )
+                                                    .size( lsEntry.getAttrs().getSize() )
+                                                    .timestamp( Instant.ofEpochSecond( lsEntry.getAttrs().getMTime() ) )
+                                                    .build() )
+                           .collect( Collectors.toList() );
        } catch( SftpException ex ) {
           throw new IOException( ex );
        }
@@ -292,11 +319,7 @@ public class SFtpWrapper implements AutoCloseable
      */
     public static void ungzipLocal( String localSourceZipFile, String localDestFilePath ) throws IOException
     {
-       try( InputStream instreamZipped = new FileInputStream( localSourceZipFile ) ) {
-          ungzipStream( instreamZipped, localDestFilePath );
-       } catch( Exception ex ) {
-          throw new IOException( "Fehler beim Unzip von " + localSourceZipFile + ",", ex );
-       }
+       ZipUtils.ungzipLocal( localSourceZipFile, localDestFilePath );
     }
 
     /**
@@ -309,15 +332,7 @@ public class SFtpWrapper implements AutoCloseable
      */
     public static void ungzipStream( InputStream instreamZipped, String localDestFilePath ) throws IOException
     {
-       try( GZIPInputStream zin = new GZIPInputStream( new BufferedInputStream( instreamZipped ) ) ) {
-          try( BufferedOutputStream os = new BufferedOutputStream( new FileOutputStream( localDestFilePath ) ) ) {
-             int size;
-             byte[] buffer = new byte[64 * 1024];
-             while( (size = zin.read( buffer, 0, buffer.length )) > 0 ) {
-                os.write( buffer, 0, size );
-             }
-          }
-       }
+       ZipUtils.ungzipStream( instreamZipped, localDestFilePath );
     }
 
     /**
@@ -347,11 +362,7 @@ public class SFtpWrapper implements AutoCloseable
      */
     public static long unzipLocal( String localSourceZipFile, String localDestDir ) throws IOException
     {
-       try( InputStream instreamZipped = new FileInputStream( localSourceZipFile ) ) {
-          return unzipStream( instreamZipped, localDestDir );
-       } catch( Exception ex ) {
-          throw new IOException( "Fehler beim Unzip von " + localSourceZipFile + ",", ex );
-       }
+       return ZipUtils.unzipLocal( localSourceZipFile, localDestDir );
     }
 
     /**
@@ -367,31 +378,7 @@ public class SFtpWrapper implements AutoCloseable
      */
     public static long unzipStream( InputStream instreamZipped, String localDestDir ) throws IOException
     {
-       long   anzahlEntries = 0;
-       String remoteResultFilename = null;
-       String destDir = ( localDestDir == null ) ? "" : localDestDir.trim();
-       destDir = ( destDir.endsWith( "/" ) || destDir.endsWith( "\\" ) ) ? destDir : (destDir + File.separator);
-       try( ZipInputStream zin = new ZipInputStream( new BufferedInputStream( instreamZipped ) ) ) {
-          ZipEntry zipEntry;
-          while( (zipEntry = zin.getNextEntry()) != null ) {
-             remoteResultFilename = zipEntry.getName();
-             if( remoteResultFilename != null && remoteResultFilename.startsWith( "/" ) && remoteResultFilename.length() > 1 ) {
-                remoteResultFilename = remoteResultFilename.substring( 1 );
-             }
-             try( BufferedOutputStream os = new BufferedOutputStream( new FileOutputStream( destDir + remoteResultFilename ) ) ) {
-                int size;
-                byte[] buffer = new byte[64 * 1024];
-                while( (size = zin.read( buffer, 0, buffer.length )) > 0 ) {
-                   os.write( buffer, 0, size );
-                }
-             }
-             zin.closeEntry();
-             anzahlEntries++;
-          }
-       } catch( Exception ex ) {
-          throw new IOException( "Fehler beim Unzip, letzter Zip-Entry " + remoteResultFilename + ",", ex );
-       }
-       return anzahlEntries;
+       return ZipUtils.unzipStream( instreamZipped, localDestDir );
     }
 
     /**
@@ -407,20 +394,23 @@ public class SFtpWrapper implements AutoCloseable
      */
     public void downloadAndUnzip( String remoteSrcDir, String localDstDir, String filenameMustContain, int maxAlterInTagen ) throws IOException
     {
-       Calendar cal = new GregorianCalendar();
-       cal.add( Calendar.DAY_OF_MONTH, -1 * maxAlterInTagen );
-       (new File( localDstDir )).mkdirs();
+       Instant threshold = Instant.now().minus( maxAlterInTagen, ChronoUnit.DAYS );
+       Path localPath = Paths.get( localDstDir );
+       if (!Files.exists(localPath)) {
+           Files.createDirectories(localPath);
+       }
        List<FileData> fds = getFileDataList( remoteSrcDir );
        for( FileData fd : fds ) {
-          if( fd.isFile && fd.name.contains( filenameMustContain ) && fd.timestamp.after( cal ) ) {
+          if( fd.isFile && fd.name.contains( filenameMustContain ) && fd.timestamp.isAfter( threshold ) ) {
              String remoteSrcFilePath = fd.parentPath + "/" + fd.name;
-             String localDstFilePath  = localDstDir + File.separator + fd.name;
+             Path localDstFilePath  = localPath.resolve( fd.name );
              if( fd.name.toLowerCase().endsWith( ".zip" ) ) {
                 unzipRemote( remoteSrcFilePath, localDstDir );
              } else if( fd.name.toLowerCase().endsWith( ".gz" ) ) {
-                ungzipRemote( remoteSrcFilePath, localDstFilePath.substring( 0, localDstFilePath.length() - 3 ) );
+                String localFilePathStr = localDstFilePath.toString();
+                ungzipRemote( remoteSrcFilePath, localFilePathStr.substring( 0, localFilePathStr.length() - 3 ) );
              } else {
-                downloadFile( remoteSrcFilePath, localDstFilePath );
+                downloadFile( remoteSrcFilePath, localDstFilePath.toString() );
              }
           }
        }
@@ -443,40 +433,24 @@ public class SFtpWrapper implements AutoCloseable
                                          String benutzername, String passwort, String host, String port ) throws IOException
     {
        try( SFtpWrapper sftpWrapper = new SFtpWrapper( benutzername, passwort, host, Integer.parseInt( port ) ) ) {
-          SimpleDateFormat df = new SimpleDateFormat( "yyyy-MM-dd HH:mm:ss" );
+          DateTimeFormatter df = DateTimeFormatter.ofPattern( "yyyy-MM-dd HH:mm:ss" ).withZone( ZoneId.systemDefault() );
           lombokLog.info( "Remote in " + remoteSrcDir + ":" );
           List<FileData> fds = sftpWrapper.getFileDataList( remoteSrcDir );
           for( FileData fd : fds ) {
              if( fd.isFile ) {
-                lombokLog.info( df.format( Long.valueOf( fd.timestamp.getTimeInMillis() ) ) + ", " + fd.size + " Bytes, " + fd.name );
+                lombokLog.info( df.format( fd.timestamp ) + ", " + fd.size + " Bytes, " + fd.name );
              }
           }
           sftpWrapper.downloadAndUnzip( remoteSrcDir, localDstDir, filenameMustContain, Integer.parseInt( maxAlterInTagen ) );
           lombokLog.info( "Lokal in " + localDstDir + ":" );
           File[] fls = (new File( localDstDir )).listFiles();
-          for( File fl : fls ) {
-             lombokLog.info( df.format( Long.valueOf( fl.lastModified() ) ) + ", " + fl.length() + " Bytes, " + fl.getName() );
+          if (fls != null) {
+              for( File fl : fls ) {
+                 lombokLog.info( df.format( Instant.ofEpochMilli( fl.lastModified() ) ) + ", " + fl.length() + " Bytes, " + fl.getName() );
+              }
           }
        }
     }
 
-    /**
-     * Innere Klasse zur Speicherung von Dateimetadaten.
-     */
-    public static class FileData
-    {
-       /** Gibt an, ob es sich um eine Datei handelt. */
-       public boolean  isFile;
-       /** Gibt an, ob es sich um ein Verzeichnis handelt. */
-       public boolean  isDirectory;
-       /** Der Pfad des übergeordneten Verzeichnisses auf dem Server. */
-       public String   parentPath;
-       /** Der Name der Datei oder des Verzeichnisses. */
-       public String   name;
-       /** Die Größe der Datei in Bytes. */
-       public long     size;
-       /** Der Zeitstempel der letzten Änderung. */
-       public Calendar timestamp;
-    }
 
 }
