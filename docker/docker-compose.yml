@@ -11,3 +11,8 @@ services:
       - "40000-40009:40000-40009/tcp" # For passive mode
     volumes:
       - "/data:/home/user"
+  sftp:
+    image: atmoz/sftp
+    ports:
+      - "2222:22"
+    command: user:123:::upload
