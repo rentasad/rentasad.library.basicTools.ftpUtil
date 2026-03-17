@@ -1,10 +1,8 @@
 package rentasad.library.basicTools.ftpUtil;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
@@ -14,16 +12,59 @@ import java.util.Date;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.List;
-import java.util.zip.CRC32;
 
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPFile;
 import org.apache.commons.net.ftp.FTPReply;
 
-import rentasad.library.basicTools.NumberTools;
 import rentasad.library.basicTools.ftpUtil.Exceptions.FtpLoginException;
 import rentasad.library.basicTools.ftpUtil.objects.FtpSettings;
+import rentasad.library.basicTools.ftpUtil.tools.FtpCrcTool;
+import rentasad.library.basicTools.ftpUtil.tools.FtpSemaphoreTool;
 
+/**
+ * The FTPConnection class provides functionality for managing connections to an FTP server
+ * and performing various file operations such as uploading, downloading, and managing files.
+ * It encapsulates the settings for the FTP connection and uses an FTP client to execute the operations.
+ *
+ * Class Fields:
+ * - messageLog: A log to store messages pertaining to FTP operations.
+ * - debug: A flag to enable/disable debug mode.
+ * - ftpSettings: Contains the settings required for the FTP connection.
+ * - ftpClient: The underlying client used for communicating with the FTP server.
+ * - verbose: Specifies if detailed output should be generated during FTP operations.
+ * - showMessages: Indicates whether to show messages from the FTP operations.
+ *
+ * Public Methods:
+ * - FTPConnection(FtpSettings ftpSettings): Constructor accepting FTP settings.
+ * - long getFileSize(String filePath): Retrieves the size of a file from the FTP server.
+ * - Long getCrcFromRemoteFtpFile(FTPFile ftpFile, FTPFile ftpFileCrc): Retrieves CRC from a remote FTP file (delegated to FtpCrcTool).
+ * - String[] getShaHashsumFromFtpFile(String ftpFilename): Retrieves the SHA hash of a file on the FTP server.
+ * - boolean createSemaphoreInFtpRootDirectory(): Creates a semaphore in the FTP root directory (delegated to FtpSemaphoreTool).
+ * - boolean removeSemaphoreInFtpRootDirectory(): Removes a semaphore from the FTP root directory (delegated to FtpSemaphoreTool).
+ * - boolean existSemaphoreInFtpRootDirectory(): Checks if a semaphore exists in the FTP root directory (delegated to FtpSemaphoreTool).
+ * - boolean connect(): Establishes an FTP connection.
+ * - void disconnect(): Closes the FTP connection.
+ * - boolean deleteFileFromFtp(String fileName): Deletes a file from the FTP server.
+ * - List<FTPFile> getFTPFileList(): Fetches a list of files from the FTP server.
+ * - Hashtable<String, FTPFile> getFtpFileHashTable(): Retrieves a hashtable of file names and FTP files.
+ * - boolean download(String localResultFile, FTPFile ftpFile): Downloads a file from the FTP server.
+ * - boolean download(String localResultFilePath, FTPFile ftpFile, String remoteFtpPath): Downloads a file from a specified remote FTP path.
+ * - boolean uploadWithCrc(String localSourceFileName, String remoteResultFileName): Uploads a file with a CRC32 checksum.
+ * - boolean upload(String localSourceFileName, String remoteResultFileName): Uploads a file to the FTP server.
+ * - boolean existFile(String remotefile): Checks if a file exists in the current FTP directory.
+ * - static long getCRCFromLocalFile(String fileName): Computes a CRC32 checksum for a local file.
+ * - static Date getTimeStampFromLocalFile(String fileName): Retrieves the timestamp of a local file.
+ * - static long getCRCFromInputStream(InputStream inputStream): Computes a CRC32 checksum from an input stream.
+ * - boolean changeDir(String dirString): Changes the current directory on the FTP server.
+ * - boolean isVerbose(): Retrieves the verbose status.
+ * - void setVerbose(boolean verbose): Sets the verbose status.
+ *
+ * Exceptions:
+ * - IOException: Thrown for I/O-related errors during FTP operations.
+ * - FtpLoginException: Thrown for login or authentication failures.
+ * - SocketException: Thrown for socket-related errors.
+ */
 public class FTPConnection
 {
     private ArrayList<String> messageLog = new ArrayList<String>();
@@ -32,6 +73,8 @@ public class FTPConnection
     private FTPClient ftpClient = new FTPClient();
     private boolean verbose = true;
     private boolean showMessages = true;
+    private final FtpSemaphoreTool semaphoreTool;
+    private final FtpCrcTool crcTool;
 
     public FTPConnection(
                          FtpSettings ftpSettings)
@@ -39,6 +82,8 @@ public class FTPConnection
         super();
         this.ftpSettings = ftpSettings;
         this.ftpClient.setControlKeepAliveTimeout(20);
+        this.semaphoreTool = new FtpSemaphoreTool(this);
+        this.crcTool = new FtpCrcTool(this);
     }
 
     public long getFileSize(String filePath) throws Exception
@@ -56,37 +101,7 @@ public class FTPConnection
 
     public Long getCrcFromRemoteFtpFile(final FTPFile ftpFile, final FTPFile ftpFileCrc) throws IOException, FtpLoginException
     {
-        File localTempCrcFile = File.createTempFile("crc_", ".crc");
-        boolean downloadSuccess = download(localTempCrcFile.getAbsolutePath(), ftpFileCrc);
-        if (downloadSuccess)
-        {
-            BufferedReader br = new BufferedReader(new FileReader(localTempCrcFile));
-
-            String line;
-            if ((line = br.readLine()) != null)
-            {
-
-                if (NumberTools.isNumericLong(line))
-                {
-                    Long crcLong =  Long.valueOf(line);
-                    br.close();
-                    localTempCrcFile.deleteOnExit();
-                    return crcLong;
-                }else
-                {
-                    br.close();
-                    return null;
-                }
-
-            }else
-            {
-                br.close();
-                return null;
-            }
-        } else
-        {
-            return null;
-        }
+        return crcTool.getCrcFromRemoteFtpFile(ftpFile, ftpFileCrc);
     }
 
     /**
@@ -110,40 +125,17 @@ public class FTPConnection
 
     public boolean createSemaphoreInFtpRootDirectory() throws IOException, FtpLoginException
     {
-        String tempDir = System.getProperty("java.io.tmpdir");
-        String semaphoreFileName = tempDir + File.separator + "LOCK";
-        PrintWriter writer = new PrintWriter(semaphoreFileName, "UTF-8");
-        writer.println("This is a semphore File");
-        writer.println("Until this File is visibility the files of this folder will be updated");
-        writer.close();
-        File semaphoreFile = new File(semaphoreFileName);
-        if (semaphoreFile.exists())
-        {
-            System.out.println("UPLOAD SEMAPHORE");
-            return upload(semaphoreFileName, semaphoreFile.getName());
-        } else
-        {
-            System.err.println("Fehler beim Erzeugen der Semaphore");
-            return false;
-        }
+        return semaphoreTool.createSemaphoreInFtpRootDirectory();
     }
 
     public boolean removeSemaphoreInFtpRootDirectory() throws IOException, FtpLoginException
     {
-        if (existFile("LOCK"))
-        {
-            System.out.println("REMOVE SEMAPHORE");
-            return deleteFileFromFtp("LOCK");
-        } else
-        {
-            System.err.println("Semaphore existiert nicht auf FTP-Server");
-            return false;
-        }
+        return semaphoreTool.removeSemaphoreInFtpRootDirectory();
     }
 
     public boolean existSemaphoreInFtpRootDirectory() throws IOException, FtpLoginException
     {
-        return existFile("LOCK");
+        return semaphoreTool.existSemaphoreInFtpRootDirectory();
     }
 
     /**
@@ -153,7 +145,7 @@ public class FTPConnection
      * @return
      * @throws SocketException
      * @throws IOException
-     * @throws rentasad.lib.tools.ftputil.Exceptions.FtpLoginException
+     * @throws FtpLoginException
      */
     public boolean connect() throws SocketException, IOException, FtpLoginException
     {
@@ -217,7 +209,6 @@ public class FTPConnection
 
     /**
      *
-     * @param ftpSettings
      * @return
      * @throws SocketException
      * @throws IOException
@@ -339,11 +330,12 @@ public class FTPConnection
      */
     public boolean uploadWithCrc(String localSourceFileName, String remoteResultFileName) throws IOException, FtpLoginException
     {
-        Long crc = getCRCFromLocalFile(localSourceFileName);
+        Long crc = FtpCrcTool.getCRCFromLocalFile(localSourceFileName);
         String crcFilename = localSourceFileName + ".crc";
-        PrintWriter writer = new PrintWriter(crcFilename, "UTF-8");
-        writer.println(crc.toString());
-        writer.close();
+        try (PrintWriter writer = new PrintWriter(crcFilename, "UTF-8"))
+        {
+            writer.println(crc.toString());
+        }
         upload(crcFilename, remoteResultFileName + ".crc");
         return upload(localSourceFileName, remoteResultFileName);
     }
@@ -437,14 +429,12 @@ public class FTPConnection
      */
     public static long getCRCFromLocalFile(String fileName) throws IOException
     {
-        FileInputStream fileInputStream = new FileInputStream(new File(fileName));
-        return getCRCFromInputStream(fileInputStream);
+        return FtpCrcTool.getCRCFromLocalFile(fileName);
     }
 
     public static Date getTimeStampFromLocalFile(String fileName)
     {
-        File file = new File(fileName);
-        return new Date(file.lastModified());
+        return FtpCrcTool.getTimeStampFromLocalFile(fileName);
     }
 
     /**
@@ -456,15 +446,7 @@ public class FTPConnection
 
     public static long getCRCFromInputStream(InputStream inputStream) throws IOException
     {
-
-        CRC32 crc32 = new CRC32();
-        int counter;
-        while ((counter = inputStream.read()) != -1)
-        {
-            crc32.update(counter);
-        }
-        inputStream.close();
-        return crc32.getValue();
+        return FtpCrcTool.getCRCFromInputStream(inputStream);
     }
 
     public boolean changeDir(String dirString) throws SocketException, IOException, FtpLoginException
