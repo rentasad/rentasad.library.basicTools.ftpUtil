@@ -3,12 +3,16 @@ package rentasad.library.basicTools.ftpUtil.tools;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
+import lombok.extern.java.Log;
+import org.apache.commons.net.ftp.FTPFile;
 import rentasad.library.basicTools.ftpUtil.Exceptions.FtpLoginException;
 import rentasad.library.basicTools.ftpUtil.FTPConnection;
+import rentasad.library.basicTools.ftpUtil.objects.FtpSemaphore;
 
 /**
  * Utility class for managing semaphore (lock) files on an FTP server.
  */
+@Log
 public class FtpSemaphoreTool {
 
     private final FTPConnection ftpConnection;
@@ -33,10 +37,10 @@ public class FtpSemaphoreTool {
         }
         File semaphoreFile = new File(semaphoreFileName);
         if (semaphoreFile.exists()) {
-            System.out.println("UPLOAD SEMAPHORE");
+            lombokLog.info("UPLOAD SEMAPHORE");
             return ftpConnection.upload(semaphoreFileName, semaphoreFile.getName());
         } else {
-            System.err.println("Fehler beim Erzeugen der Semaphore");
+            lombokLog.severe("Fehler beim Erzeugen der Semaphore");
             return false;
         }
     }
@@ -50,10 +54,10 @@ public class FtpSemaphoreTool {
      */
     public boolean removeSemaphoreInFtpRootDirectory() throws IOException, FtpLoginException {
         if (ftpConnection.existFile("LOCK")) {
-            System.out.println("REMOVE SEMAPHORE");
+            lombokLog.info("REMOVE SEMAPHORE");
             return ftpConnection.deleteFileFromFtp("LOCK");
         } else {
-            System.err.println("Semaphore existiert nicht auf FTP-Server");
+            lombokLog.severe("Semaphore existiert nicht auf FTP-Server");
             return false;
         }
     }
@@ -67,5 +71,56 @@ public class FtpSemaphoreTool {
      */
     public boolean existSemaphoreInFtpRootDirectory() throws IOException, FtpLoginException {
         return ftpConnection.existFile("LOCK");
+    }
+
+    /**
+     * Retrieves detailed information about the semaphore from the FTP server.
+     *
+     * @return An FtpSemaphore object containing metadata.
+     * @throws IOException If an I/O error occurs.
+     * @throws FtpLoginException If an FTP login error occurs.
+     */
+    public FtpSemaphore getSemaphoreInfo() throws IOException, FtpLoginException {
+        ftpConnection.connect();
+        FTPFile[] files = ftpConnection.getFtpClient().listFiles("LOCK");
+        if (files != null && files.length > 0) {
+            FTPFile lockFile = files[0];
+            return new FtpSemaphore(lockFile.getName(), lockFile.getTimestamp().getTime(), lockFile.getSize(), true);
+        } else {
+            return new FtpSemaphore("LOCK", null, 0, false);
+        }
+    }
+
+    /**
+     * Checks if a semaphore exists and is older than the specified duration.
+     *
+     * @param durationInMilliseconds The age threshold in milliseconds.
+     * @return true if the semaphore is older than the threshold.
+     * @throws IOException If an I/O error occurs.
+     * @throws FtpLoginException If an FTP login error occurs.
+     */
+    public boolean isSemaphoreOlderThan(long durationInMilliseconds) throws IOException, FtpLoginException {
+        FtpSemaphore semaphore = getSemaphoreInfo();
+        if (semaphore.isExists() && semaphore.getCreationDate() != null) {
+            long age = System.currentTimeMillis() - semaphore.getCreationDate().getTime();
+            return age > durationInMilliseconds;
+        }
+        return false;
+    }
+
+    /**
+     * Clears the semaphore if it is older than the specified duration.
+     *
+     * @param durationInMilliseconds The age threshold in milliseconds.
+     * @return true if the semaphore was cleared or did not exist.
+     * @throws IOException If an I/O error occurs.
+     * @throws FtpLoginException If an FTP login error occurs.
+     */
+    public boolean clearSemaphoreIfOlderThan(long durationInMilliseconds) throws IOException, FtpLoginException {
+        if (isSemaphoreOlderThan(durationInMilliseconds)) {
+            lombokLog.info("Semaphore is older than threshold. Removing...");
+            return removeSemaphoreInFtpRootDirectory();
+        }
+        return !existSemaphoreInFtpRootDirectory();
     }
 }

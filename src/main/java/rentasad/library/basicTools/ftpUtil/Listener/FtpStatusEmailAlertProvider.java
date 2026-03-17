@@ -1,6 +1,7 @@
 package rentasad.library.basicTools.ftpUtil.Listener;
 
 import java.io.IOException;
+import lombok.extern.java.Log;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -40,6 +41,7 @@ import rentasad.library.db.MYSQLConnection;
  *
  *02.09.2021 -> MUSS in Projekt umgezogen werden wo es gebraucht wird --> Hier werden Methoden ausgeklammert
  */
+@Log
 public class FtpStatusEmailAlertProvider
 {
     // Empfaenger der E-Mail
@@ -116,7 +118,7 @@ public class FtpStatusEmailAlertProvider
                          */
                         Long crcChecksumLastUpload = getCrcChecksumFromDatabase(ftpFileStatus.getLocalFile().getName(), mySqlSettingsMap);
                         Long actualLCrcLocal = FTPConnection.getCRCFromLocalFile(ftpFileStatus.getLocalFile().getAbsolutePath());
-                        System.out.println(String.format("Lokal: %d - Remote: %d", actualLCrcLocal, crcChecksumLastUpload));
+                        lombokLog.info(String.format("Lokal: %d - Remote: %d", actualLCrcLocal, crcChecksumLastUpload));
                         if (!crcChecksumLastUpload.equals(actualLCrcLocal)) {
                             /*
                               Dateien lokal und Remote sind unterschiedlich --> sie müssten aktuell sein --> Fehlermeldung senden!
@@ -156,11 +158,11 @@ public class FtpStatusEmailAlertProvider
                 meldung.append((String) iterator.next()).append("\n");
 
             }
-            System.out.println(meldung);
+            lombokLog.info(meldung.toString());
 
             if (mailSendActivated)
             {
-                System.out.println("Versende E-Mail mit Statusmeldung");
+                lombokLog.info("Versende E-Mail mit Statusmeldung");
                 String mailFrom = configMap.get(IFTPKonfigurationSheetParameter.PARAMETER_NAME_MAIL_SMTP_FROM);
                 String mailHost = configMap.get(IFTPKonfigurationSheetParameter.PARAMETER_NAME_MAIL_SMTP_HOST);
                 String mailTo = configMap.get(IFTPKonfigurationSheetParameter.PARAMETER_NAME_MAIL_SMTP_TO);
@@ -174,13 +176,13 @@ public class FtpStatusEmailAlertProvider
                     mailPassword = configMap.get(IFTPKonfigurationSheetParameter.PARAMETER_NAME_MAIL_SMTP_PASSWORT);
                 }
                 String mailText = mailBody + "\n" + meldung;
-                System.out.println(sendeEmail(mailHost, mailUsername, mailPassword, mailFrom, mailToArray, mailSubject, mailText));
+                lombokLog.info(sendeEmail(mailHost, mailUsername, mailPassword, mailFrom, mailToArray, mailSubject, mailText));
 
             }
 
         } else
         {
-            System.out.println("Alle zu pruefenden Dateien sind vorhanden und aktuell.");
+            lombokLog.info("Alle zu pruefenden Dateien sind vorhanden und aktuell.");
         }
     }
 	/*

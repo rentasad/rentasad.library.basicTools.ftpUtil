@@ -11,6 +11,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.util.Date;
 import java.util.List;
 
 import org.apache.commons.net.ftp.FTPFile;
@@ -19,6 +20,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import rentasad.library.basicTools.ftpUtil.Exceptions.FtpLoginException;
+import rentasad.library.basicTools.ftpUtil.objects.FtpSemaphore;
 import rentasad.library.basicTools.ftpUtil.objects.FtpSettings;
 
 public class FTPConnectionTest
@@ -26,7 +28,7 @@ public class FTPConnectionTest
 	/**
 	 * Here you should configure the TEST FTP-SERVER for unti testing
 	 */
-	private final String FTP_HOSTNAME = "127.0.01";
+	private final String FTP_HOSTNAME = "127.0.0.1";
 	private final String FTP_USERNAME = "user";
 	private final String FTP_PASSWORD = "123";
 	private final Integer FTP_PORT = 21;
@@ -351,5 +353,48 @@ public class FTPConnectionTest
         ftpConnection.deleteFileFromFtp(remoteResultFileName);
         ftpConnection.deleteFileFromFtp(remoteResultCrcFileName);
         ftpConnection.disconnect();
+    }
+
+    @Test
+    public void testSemaphoreManagement() throws Exception
+    {
+        FtpSettings settings = new FtpSettings();
+        settings.setFtpPassword(FTP_PASSWORD);
+        settings.setFtpPort(FTP_PORT);
+        settings.setFtpHost(FTP_HOSTNAME);
+        settings.setFtpUsername(FTP_USERNAME);
+        this.ftpConnection = new FTPConnection(settings);
+
+        // 1. Ensure no semaphore exists
+        if (this.ftpConnection.existSemaphoreInFtpRootDirectory()) {
+            this.ftpConnection.removeSemaphoreInFtpRootDirectory();
+        }
+        assertFalse(this.ftpConnection.existSemaphoreInFtpRootDirectory());
+
+        // 2. Create semaphore
+        assertTrue(this.ftpConnection.createSemaphoreInFtpRootDirectory());
+        assertTrue(this.ftpConnection.existSemaphoreInFtpRootDirectory());
+
+        // 3. Get details
+        FtpSemaphore details = this.ftpConnection.getSemaphoreDetails();
+        assertTrue(details.isExists());
+        assertNotNull(details.getCreationDate());
+        assertTrue(details.getFileSize() > 0);
+        System.out.println("Current Time: " + new Date());
+        System.out.println("Semaphore Creation Date: " + details.getCreationDate());
+        System.out.println("Semaphore Details: " + details);
+
+        // 4. Test clear if older than (should NOT clear as it's new)
+        // We use a very large threshold to ensure it's not cleared
+        assertFalse(this.ftpConnection.clearSemaphoreIfOlderThan(1000 * 60 * 60 * 24)); // 24 hours
+        assertTrue(this.ftpConnection.existSemaphoreInFtpRootDirectory());
+
+        // 5. Test clear if older than (SHOULD clear as we use a small threshold)
+        // Since FTP timestamps might be in the past or truncated, we wait and use a 0 threshold if needed
+        Thread.sleep(2000); 
+        assertTrue(this.ftpConnection.clearSemaphoreIfOlderThan(0)); // 0 ms should always trigger if exists
+        assertFalse(this.ftpConnection.existSemaphoreInFtpRootDirectory());
+
+        this.ftpConnection.disconnect();
     }
 }
