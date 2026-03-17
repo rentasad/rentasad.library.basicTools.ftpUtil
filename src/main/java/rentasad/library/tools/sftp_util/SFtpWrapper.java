@@ -15,37 +15,35 @@ import java.util.List;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
-
+import lombok.extern.java.Log;
 import com.jcraft.jsch.ChannelSftp;
 import com.jcraft.jsch.ChannelSftp.LsEntry;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
 import com.jcraft.jsch.SftpException;
+
 /**
- * 
- * Gustini GmbH (2017)
- * Creation: 06.01.2017
- * Library
- * rentasad.library.tools.sftp_util
- * 
- * @author Matthias Staud
- *
- *
- * Description:
- *
+ * Wrapper-Klasse für die Handhabung von SFTP-Dateiübertragungen und Verzeichnisoperationen.
+ * Bietet Methoden zum Verbinden mit einem SFTP-Server, zum Übertragen von Dateien,
+ * zum Abrufen von Dateidaten sowie zum Komprimieren oder Dekomprimieren von Dateien.
+ * Implementiert {@link AutoCloseable}, um eine ordnungsgemäße Ressourcenbereinigung zu gewährleisten.
  */
+@Log
 public class SFtpWrapper implements AutoCloseable
 {
     private Session     session;
     private ChannelSftp channel;
+
     /**
-     * 
-     * @param benutzername
-     * @param passwort
-     * @param host
-     * @param port
-     * @throws IOException
+     * Erstellt eine neue SFtpWrapper-Instanz und initialisiert eine SFTP-Verbindung.
+     * Baut eine Sitzung und einen Kanal für die Kommunikation mit dem angegebenen SFTP-Host auf.
+     *
+     * @param benutzername Der Benutzername für die Authentifizierung am SFTP-Server.
+     * @param passwort Das Passwort für die Authentifizierung am SFTP-Server.
+     * @param host Der Hostname oder die IP-Adresse des SFTP-Servers.
+     * @param port Die Portnummer des SFTP-Servers.
+     * @throws IOException Wenn ein Fehler während des Verbindungsaufbaus oder der Kanalerstellung auftritt.
      */
     public SFtpWrapper( String benutzername, String passwort, String host, int port ) throws IOException
     {
@@ -73,7 +71,16 @@ public class SFtpWrapper implements AutoCloseable
        }
     }
 
-
+    /**
+     * Schließt die SFTP-Verbindung und gibt die mit der Sitzung und dem Kanal verbundenen Ressourcen frei.
+     *
+     * Die Methode stellt sicher, dass sowohl der SFTP-Kanal als auch die Sitzung ordnungsgemäß getrennt
+     * und auf null gesetzt werden, um Ressourcenlecks zu vermeiden. Falls der Kanal existiert, wird dieser
+     * zuerst getrennt, gefolgt von der Sitzung.
+     *
+     * Diese Methode ist Teil der {@code SFtpWrapper}-Klasse und überschreibt die {@code close}-Methode
+     * des {@code AutoCloseable}-Interfaces.
+     */
     @Override
     public void close()
     {
@@ -90,11 +97,28 @@ public class SFtpWrapper implements AutoCloseable
        }
     }
 
+    /**
+     * Ruft das aktuelle lokale Arbeitsverzeichnis des SFTP-Kanals ab.
+     *
+     * Diese Methode verwendet die {@code lpwd()}-Methode des zugrunde liegenden SFTP-Kanals,
+     * um den Pfad zum aktuell aktiven lokalen Verzeichnis zu bestimmen.
+     *
+     * @return Der Pfad des aktuellen lokalen Arbeitsverzeichnisses als String.
+     */
     public String getLocalActualDir()
     {
        return channel.lpwd();
     }
 
+    /**
+     * Ruft das aktuelle entfernte Arbeitsverzeichnis des SFTP-Kanals ab.
+     *
+     * Diese Methode verwendet die {@code pwd()}-Methode des zugrunde liegenden SFTP-Kanals,
+     * um den Pfad des aktuell aktiven entfernten Verzeichnisses zu bestimmen.
+     *
+     * @return Der Pfad des aktuellen entfernten Arbeitsverzeichnisses als String.
+     * @throws IOException Wenn ein Fehler beim Abrufen des entfernten Verzeichnisses auftritt.
+     */
     public String getRemoteActualDir() throws IOException
     {
        try {
@@ -104,7 +128,18 @@ public class SFtpWrapper implements AutoCloseable
        }
     }
 
-    /** Datei-Daten zu einer einzelnen Datei */
+    /**
+     * Ruft Metadaten über eine durch ihren Pfad spezifizierte entfernte Datei ab.
+     *
+     * Diese Methode greift über den aktuellen SFTP-Kanal auf das entfernte Dateisystem zu
+     * und extrahiert Informationen über die Datei, wie Name, Größe, Verzeichnisstatus,
+     * übergeordneter Pfad und Zeitstempel der letzten Änderung.
+     *
+     * @param remoteFilePath Der vollständige Pfad zur Datei auf dem entfernten SFTP-Server.
+     * @return Ein {@code FileData}-Objekt mit den Metadaten der Datei, oder {@code null}, wenn
+     * die Datei nicht existiert oder mehrere Einträge auf den angegebenen Pfad passen.
+     * @throws IOException Wenn ein Fehler beim Abrufen der Dateimetadaten auftritt.
+     */
     public FileData getFileData( String remoteFilePath ) throws IOException
     {
        try {
@@ -129,7 +164,17 @@ public class SFtpWrapper implements AutoCloseable
        }
     }
 
-    /** Datei-Daten zu allen Dateien in einem Verzeichnis */
+    /**
+     * Ruft eine Liste von Dateimetadaten aus einem angegebenen entfernten Verzeichnis auf einem SFTP-Server ab.
+     *
+     * Diese Methode greift auf das entfernte Verzeichnis zu und generiert eine Liste von {@code FileData}-Objekten,
+     * die jeweils Metadaten über eine Datei oder ein Unterverzeichnis enthalten.
+     * Symbolische Links werden ignoriert.
+     *
+     * @param remoteDir Der Pfad zum entfernten Verzeichnis auf dem SFTP-Server.
+     * @return Eine Liste von {@code FileData}-Objekten, die die Dateien und Verzeichnisse im angegebenen Verzeichnis darstellen.
+     * @throws IOException Wenn ein Fehler beim Abrufen der Dateiliste auftritt.
+     */
     public List<FileData> getFileDataList( String remoteDir ) throws IOException
     {
        try {
@@ -153,6 +198,13 @@ public class SFtpWrapper implements AutoCloseable
        }
     }
 
+    /**
+     * Erstellt eine Datei auf einem entfernten SFTP-Server und schreibt den Inhalt des bereitgestellten InputStreams in die Datei.
+     *
+     * @param is Der InputStream, der die in die entfernte Datei zu schreibenden Daten enthält.
+     * @param remoteDstFilePath Der vollständige Pfad zur Zieldatei auf dem entfernten SFTP-Server.
+     * @throws IOException Wenn ein Fehler während der Dateierstellung oder Übertragung auftritt.
+     */
     public void createRemoteFile( InputStream is, String remoteDstFilePath ) throws IOException
     {
        try {
@@ -162,6 +214,13 @@ public class SFtpWrapper implements AutoCloseable
        }
     }
 
+    /**
+     * Lädt eine Datei vom lokalen Dateisystem auf den entfernten SFTP-Server hoch.
+     *
+     * @param localSrcFilePath Der vollständige Pfad zur Quelldatei auf dem lokalen Dateisystem.
+     * @param remoteDstFilePath Der vollständige Pfad zur Zieldatei auf dem entfernten SFTP-Server.
+     * @throws IOException Wenn ein Fehler während des Upload-Vorgangs auftritt.
+     */
     public void uploadFile( String localSrcFilePath, String remoteDstFilePath ) throws IOException
     {
        try {
@@ -171,6 +230,13 @@ public class SFtpWrapper implements AutoCloseable
        }
     }
 
+    /**
+     * Lädt eine Datei von einem entfernten SFTP-Server auf das lokale Dateisystem herunter.
+     *
+     * @param remoteSrcFilePath Der vollständige Pfad zur Quelldatei auf dem entfernten SFTP-Server.
+     * @param localDstFilePath Der vollständige Pfad zur Zieldatei auf dem lokalen Dateisystem.
+     * @throws IOException Wenn ein Fehler während des Download-Vorgangs auftritt.
+     */
     public void downloadFile( String remoteSrcFilePath, String localDstFilePath ) throws IOException
     {
        try {
@@ -180,7 +246,13 @@ public class SFtpWrapper implements AutoCloseable
           throw new IOException( ex );
        }
     }
-    
+
+    /**
+     * Entfernt eine Datei vom entfernten SFTP-Server.
+     *
+     * @param remoteFilePath Der vollständige Pfad der zu entfernenden Datei auf dem entfernten SFTP-Server.
+     * @throws IOException Wenn ein Fehler während des Löschvorgangs auftritt.
+     */
     public void removeFile(String remoteFilePath) throws IOException
     {
             try
@@ -193,7 +265,14 @@ public class SFtpWrapper implements AutoCloseable
             
     }
 
-    /** Entpacken von remote .gz */
+    /**
+     * Dekomprimiert eine GZIP-komprimierte Datei von einer entfernten Quelle und schreibt den dekomprimierten Inhalt
+     * in eine angegebene lokale Zieldatei.
+     *
+     * @param remoteSourceZipFile Der Pfad der GZIP-komprimierten Datei auf der entfernten Quelle.
+     * @param localDestFilePath Der lokale Dateipfad, unter dem der dekomprimierte Inhalt gespeichert wird.
+     * @throws IOException Wenn ein Fehler beim Zugriff oder beim Dekomprimieren der Datei auftritt.
+     */
     public void ungzipRemote( String remoteSourceZipFile, String localDestFilePath ) throws IOException
     {
        try( InputStream instreamZipped = channel.get( remoteSourceZipFile ) ) {
@@ -203,7 +282,14 @@ public class SFtpWrapper implements AutoCloseable
        }
     }
 
-    /** Entpacken von lokalem .gz */
+    /**
+     * Dekomprimiert eine lokale GZIP-komprimierte Datei und speichert den dekomprimierten Inhalt
+     * im angegebenen Zieldateipfad.
+     *
+     * @param localSourceZipFile Der Pfad zur lokalen GZIP-komprimierten Quelldatei.
+     * @param localDestFilePath Der Pfad zur Zieldatei, in der der dekomprimierte Inhalt gespeichert wird.
+     * @throws IOException Wenn ein Fehler während der Dekomprimierung auftritt.
+     */
     public static void ungzipLocal( String localSourceZipFile, String localDestFilePath ) throws IOException
     {
        try( InputStream instreamZipped = new FileInputStream( localSourceZipFile ) ) {
@@ -213,7 +299,14 @@ public class SFtpWrapper implements AutoCloseable
        }
     }
 
-    /** Entpacken von .gz */
+    /**
+     * Dekomprimiert einen GZIP-komprimierten InputStream und schreibt die dekomprimierten Daten
+     * in einen angegebenen Dateipfad.
+     *
+     * @param instreamZipped Der InputStream, der GZIP-komprimierte Daten enthält.
+     * @param localDestFilePath Der Pfad der Datei, in die die dekomprimierten Daten geschrieben werden sollen.
+     * @throws IOException Wenn ein Fehler während der Dekomprimierung oder beim Schreiben in die Datei auftritt.
+     */
     public static void ungzipStream( InputStream instreamZipped, String localDestFilePath ) throws IOException
     {
        try( GZIPInputStream zin = new GZIPInputStream( new BufferedInputStream( instreamZipped ) ) ) {
@@ -227,7 +320,14 @@ public class SFtpWrapper implements AutoCloseable
        }
     }
 
-    /** Entpacken von remote .zip */
+    /**
+     * Entpackt eine entfernte ZIP-Datei in ein angegebenes lokales Verzeichnis.
+     *
+     * @param remoteSourceZipFile Der Pfad zur entfernten ZIP-Datei, die entpackt werden soll.
+     * @param localDestDir Der Pfad zum lokalen Verzeichnis, in das die Dateien extrahiert werden sollen.
+     * @return Die Gesamtzahl der extrahierten Dateien.
+     * @throws IOException Wenn ein Fehler beim Zugriff auf die entfernte ZIP-Datei oder während der Extraktion auftritt.
+     */
     public long unzipRemote( String remoteSourceZipFile, String localDestDir ) throws IOException
     {
        try( InputStream instreamZipped = channel.get( remoteSourceZipFile ) ) {
@@ -237,7 +337,14 @@ public class SFtpWrapper implements AutoCloseable
        }
     }
 
-    /** Entpacken von lokalem .zip */
+    /**
+     * Entpackt eine lokale ZIP-Datei in ein angegebenes lokales Zielverzeichnis.
+     *
+     * @param localSourceZipFile Der Pfad zur lokalen ZIP-Quelldatei.
+     * @param localDestDir Das lokale Verzeichnis, in das der Inhalt der ZIP-Datei extrahiert werden soll.
+     * @return Die Gesamtzahl der extrahierten Einträge.
+     * @throws IOException Wenn ein Fehler während des Entpackungsvorgangs auftritt.
+     */
     public static long unzipLocal( String localSourceZipFile, String localDestDir ) throws IOException
     {
        try( InputStream instreamZipped = new FileInputStream( localSourceZipFile ) ) {
@@ -247,7 +354,17 @@ public class SFtpWrapper implements AutoCloseable
        }
     }
 
-    /** Entpacken von .zip */
+    /**
+     * Entpackt den Inhalt einer ZIP-Datei aus dem bereitgestellten InputStream in das angegebene lokale Zielverzeichnis.
+     * Extrahiert Dateien aus dem ZIP-Stream, behält die Verzeichnisstruktur bei
+     * und schreibt sie in das lokale Dateisystem.
+     *
+     * @param instreamZipped Der InputStream, der die komprimierten ZIP-Daten enthält.
+     * @param localDestDir Das lokale Verzeichnis, in das der ZIP-Inhalt extrahiert werden soll.
+     *                     Wenn null oder leer, wird das aktuelle Arbeitsverzeichnis verwendet.
+     * @return Die Anzahl der erfolgreich aus dem ZIP-Archiv extrahierten Einträge (Dateien/Verzeichnisse).
+     * @throws IOException Wenn ein Fehler während der Extraktion oder beim Schreiben in das Zielverzeichnis auftritt.
+     */
     public static long unzipStream( InputStream instreamZipped, String localDestDir ) throws IOException
     {
        long   anzahlEntries = 0;
@@ -277,7 +394,17 @@ public class SFtpWrapper implements AutoCloseable
        return anzahlEntries;
     }
 
-    /** Downloaden sowie Entpacken von .zip und .gz */
+    /**
+     * Lädt Dateien aus einem entfernten Quellverzeichnis in ein lokales Zielverzeichnis herunter und verarbeitet diese
+     * basierend auf spezifischen Filterkriterien. Dateien können wie besehen heruntergeladen oder dekomprimiert werden,
+     * wenn sie im ZIP- oder GZ-Format vorliegen.
+     *
+     * @param remoteSrcDir Der Pfad zum entfernten Quellverzeichnis.
+     * @param localDstDir  Der Pfad zum lokalen Zielverzeichnis.
+     * @param filenameMustContain Ein String, der im Dateinamen enthalten sein muss.
+     * @param maxAlterInTagen Das maximale Alter in Tagen für zu berücksichtigende Dateien.
+     * @throws IOException Wenn ein Fehler beim Herunterladen oder Dekomprimieren auftritt.
+     */
     public void downloadAndUnzip( String remoteSrcDir, String localDstDir, String filenameMustContain, int maxAlterInTagen ) throws IOException
     {
        Calendar cal = new GregorianCalendar();
@@ -299,36 +426,56 @@ public class SFtpWrapper implements AutoCloseable
        }
     }
 
-    /** Downloaden sowie Entpacken von .zip und .gz */
+    /**
+     * Lädt Dateien herunter und entpackt diese (.zip und .gz).
+     *
+     * @param remoteSrcDir         Das entfernte Quellverzeichnis.
+     * @param localDstDir          Das lokale Zielverzeichnis.
+     * @param filenameMustContain  Filter für Dateinamen.
+     * @param maxAlterInTagen      Maximales Alter der Dateien in Tagen.
+     * @param benutzername         Benutzername für SFTP.
+     * @param passwort             Passwort für SFTP.
+     * @param host                 SFTP-Host.
+     * @param port                 SFTP-Port.
+     * @throws IOException         Bei Fehlern während des Vorgangs.
+     */
     public static void downloadAndUnzip( String remoteSrcDir, String localDstDir, String filenameMustContain, String maxAlterInTagen,
                                          String benutzername, String passwort, String host, String port ) throws IOException
     {
        try( SFtpWrapper sftpWrapper = new SFtpWrapper( benutzername, passwort, host, Integer.parseInt( port ) ) ) {
           SimpleDateFormat df = new SimpleDateFormat( "yyyy-MM-dd HH:mm:ss" );
-          System.out.println( "Remote in " + remoteSrcDir + ":" );
+          lombokLog.info( "Remote in " + remoteSrcDir + ":" );
           List<FileData> fds = sftpWrapper.getFileDataList( remoteSrcDir );
           for( FileData fd : fds ) {
              if( fd.isFile ) {
-                System.out.println( df.format( Long.valueOf( fd.timestamp.getTimeInMillis() ) ) + ", " + fd.size + " Bytes, " + fd.name );
+                lombokLog.info( df.format( Long.valueOf( fd.timestamp.getTimeInMillis() ) ) + ", " + fd.size + " Bytes, " + fd.name );
              }
           }
           sftpWrapper.downloadAndUnzip( remoteSrcDir, localDstDir, filenameMustContain, Integer.parseInt( maxAlterInTagen ) );
-          System.out.println( "Lokal in " + localDstDir + ":" );
+          lombokLog.info( "Lokal in " + localDstDir + ":" );
           File[] fls = (new File( localDstDir )).listFiles();
           for( File fl : fls ) {
-             System.out.println( df.format( Long.valueOf( fl.lastModified() ) ) + ", " + fl.length() + " Bytes, " + fl.getName() );
+             lombokLog.info( df.format( Long.valueOf( fl.lastModified() ) ) + ", " + fl.length() + " Bytes, " + fl.getName() );
           }
        }
     }
 
-    /** Datei-Daten */
+    /**
+     * Innere Klasse zur Speicherung von Dateimetadaten.
+     */
     public static class FileData
     {
+       /** Gibt an, ob es sich um eine Datei handelt. */
        public boolean  isFile;
+       /** Gibt an, ob es sich um ein Verzeichnis handelt. */
        public boolean  isDirectory;
+       /** Der Pfad des übergeordneten Verzeichnisses auf dem Server. */
        public String   parentPath;
+       /** Der Name der Datei oder des Verzeichnisses. */
        public String   name;
+       /** Die Größe der Datei in Bytes. */
        public long     size;
+       /** Der Zeitstempel der letzten Änderung. */
        public Calendar timestamp;
     }
 
